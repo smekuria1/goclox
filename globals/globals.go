@@ -1,0 +1,16 @@
+package globals
+
+type OpCode uint8
+
+const (
+	OP_RETURN OpCode = iota
+	OP_NEGATE
+	OP_ADD
+	OP_SUBTRACT
+	OP_MULTIPLY
+	OP_DIVIDE
+	OP_CONSTANT
+)
+const MAXIMUM_OVERFLOW = 512
+
+var DEBUG_TRACE_EXECUTION = 0
