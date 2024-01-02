@@ -42,10 +42,10 @@ func FreeVM() {
 }
 
 func (vm *VM) Push(value Value) {
-	//DEBATING HOW TO HANDLE OVERFLOW
-	if vm.stackTop+1 >= STACK_MAX {
+	// //DEBATING HOW TO HANDLE OVERFLOW
+	// if vm.stackTop+1 >= STACK_MAX {
 
-	}
+	// }
 	vm.stack[vm.stackTop] = value
 	vm.stackTop++
 }
@@ -55,7 +55,7 @@ func (vm *VM) Pop() Value {
 	return vm.stack[vm.stackTop]
 }
 
-func Interpret(chunk *Chunk) InterpretResult {
+func Interpret(chunk *Chunk, source []byte) InterpretResult {
 	vm.chunk = chunk
 	vm.ip = vm.chunk.Code
 	return vm.run()
@@ -116,26 +116,26 @@ func (vm *VM) run() InterpretResult {
 		case uint8(globals.OP_CONSTANT):
 			constant := vm.READ_CONSTANT()
 			vm.Push(constant)
-			break
+			//break
 		case uint8(globals.OP_RETURN):
 			PrintValue(vm.Pop())
 			fmt.Print("\n")
 			return INTERPRET_OK
 		case uint8(globals.OP_NEGATE):
 			vm.Push(-(vm.Pop()))
-			break
+			//break
 		case uint8(globals.OP_ADD):
 			vm.BinaryOp(func(v1, v2 Value) Value { return v1 + v2 })
-			break
+			//break
 		case uint8(globals.OP_SUBTRACT):
 			vm.BinaryOp(func(v1, v2 Value) Value { return v1 - v2 })
-			break
+			//break
 		case uint8(globals.OP_MULTIPLY):
 			vm.BinaryOp(func(v1, v2 Value) Value { return v1 * v2 })
-			break
+			//break
 		case uint8(globals.OP_DIVIDE):
 			vm.BinaryOp(func(v1, v2 Value) Value { return v1 / v2 })
-			break
+			//break
 		default:
 			fmt.Println("Runtime Error at", vm.chunk.Lines[offset])
 			return INTERPRET_RUNTIME_ERROR
