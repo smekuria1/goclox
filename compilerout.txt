@@ -1,0 +1,12 @@
+Running file test.clox
+   1 19 'print'
+    | 21 '1'
+    |  7 '+'
+    | 21 '2'
+    |  8 ';'
+    | 38 '
+print "hello";'
+    | 19 'print'
+    | 20 '"hello"'
+    |  8 ';'
+    | 39 ''

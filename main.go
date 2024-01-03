@@ -41,7 +41,7 @@ func main() {
 
 		fmt.Println("Running file", *filename)
 		source := readFile(*filename)
-		fmt.Printf("source: %v\n", source)
+		src.Interpret(nil, source)
 
 	}
 

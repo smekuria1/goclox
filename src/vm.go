@@ -55,10 +55,10 @@ func (vm *VM) Pop() Value {
 	return vm.stack[vm.stackTop]
 }
 
-func Interpret(chunk *Chunk, source []byte) InterpretResult {
+func Interpret(chunk *Chunk, source string) InterpretResult {
 	vm.chunk = chunk
-	vm.ip = vm.chunk.Code
-	return vm.run()
+	Compile(source)
+	return INTERPRET_OK
 
 }
 func (vm *VM) BinaryOp(op func(Value, Value) Value) {
