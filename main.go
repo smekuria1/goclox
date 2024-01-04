@@ -15,12 +15,15 @@ var filename = flag.String("file", "", "Path to gocloxfile")
 var help = flag.Bool("help", false, "Display help")
 
 func main() {
-	flag.IntVar(&globals.DEBUG_TRACE_EXECUTION, "debug", 0, "Turn on debug mode")
+	flag.BoolVar(&globals.DEBUG_TRACE_EXECUTION, "debugT", false, "Turn on debug trace execution mode")
+	flag.BoolVar(&globals.DEBUG_PRINT_CODE, "debugC", false, "Turn on debug print code mode")
 	flag.Parse()
 
 	if *help {
-		fmt.Println("-debug bool")
-		fmt.Println("    Turn on debug mode")
+		fmt.Println("-debugT bool")
+		fmt.Println("    Turn on debug trace execution mode")
+		fmt.Println("-debugC bool")
+		fmt.Println("    Turn on debug print code mode")
 		fmt.Println("-file string")
 		fmt.Println("    Path to gocloxfile")
 		fmt.Println("-repl bool")
@@ -41,7 +44,7 @@ func main() {
 
 		fmt.Println("Running file", *filename)
 		source := readFile(*filename)
-		src.Interpret(nil, source)
+		src.Interpret(source)
 
 	}
 
@@ -62,12 +65,16 @@ func readFile(path string) string {
 func replFunc() {
 	var line string
 	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println("Goclox v0.0.1, type q or press Enter to quit REPL")
 	for {
 		fmt.Printf("> ")
 		scanner.Scan()
 		line = scanner.Text()
+		if line == "q" {
+			break
+		}
 		if len(line) != 0 {
-			fmt.Println(line)
+			src.Interpret(line)
 		} else {
 			break
 		}

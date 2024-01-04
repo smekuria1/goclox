@@ -55,10 +55,21 @@ func (vm *VM) Pop() Value {
 	return vm.stack[vm.stackTop]
 }
 
-func Interpret(chunk *Chunk, source string) InterpretResult {
-	vm.chunk = chunk
-	Compile(source)
-	return INTERPRET_OK
+func Interpret(source string) InterpretResult {
+	var chunk Chunk
+	InitChunk(&chunk)
+
+	if !Compile(source, &chunk) {
+		FreeChunk(&chunk)
+		return INTERPRET_COMPILE_ERROR
+	}
+
+	vm.chunk = &chunk
+	vm.ip = vm.chunk.Code
+
+	result := vm.run()
+	FreeChunk(&chunk)
+	return result
 
 }
 func (vm *VM) BinaryOp(op func(Value, Value) Value) {
@@ -98,7 +109,7 @@ Returns:
 func (vm *VM) run() InterpretResult {
 	offset := 0
 	for {
-		if globals.DEBUG_TRACE_EXECUTION == 1 {
+		if globals.DEBUG_TRACE_EXECUTION {
 			fmt.Printf("     ")
 			for slot := 0; slot < int(vm.stackTop); slot++ {
 				fmt.Print("[")

@@ -66,4 +66,5 @@ const (
 )
 const MAXIMUM_OVERFLOW = 512
 
-var DEBUG_TRACE_EXECUTION = 0
+var DEBUG_TRACE_EXECUTION = false
+var DEBUG_PRINT_CODE = false
