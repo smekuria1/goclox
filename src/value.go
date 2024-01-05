@@ -2,12 +2,57 @@ package src
 
 import "fmt"
 
-type Value float64
+type ValueType int
+
+const (
+	ValBool ValueType = iota
+	ValNil
+	ValNumber
+)
+
+type Value struct {
+	Type ValueType
+	As   interface{}
+}
 
 type ValueArray struct {
 	Capacity int
 	Count    int
 	Values   []Value
+}
+
+// Functions to create specific value instances
+func BoolValue(value bool) Value {
+	return Value{Type: ValBool, As: value}
+}
+
+func NilValue() Value {
+	return Value{Type: ValNil, As: nil}
+}
+
+func NumberValue(value float64) Value {
+	return Value{Type: ValNumber, As: value}
+}
+
+// Functions to access values and check types
+func AsBool(value Value) bool {
+	return value.As.(bool)
+}
+
+func AsNumber(value Value) float64 {
+	return value.As.(float64)
+}
+
+func IsBool(value Value) bool {
+	return value.Type == ValBool
+}
+
+func IsNil(value Value) bool {
+	return value.Type == ValNil
+}
+
+func IsNumber(value Value) bool {
+	return value.Type == ValNumber
 }
 
 func InitValueArray(array *ValueArray) {
@@ -32,5 +77,12 @@ func FreeValueArray(array *ValueArray) {
 }
 
 func PrintValue(value Value) {
-	fmt.Printf("%g", value)
+	switch value.Type {
+	case ValBool:
+		fmt.Print(AsBool(value))
+	case ValNil:
+		fmt.Print("nil")
+	case ValNumber:
+		fmt.Print(AsNumber(value))
+	}
 }

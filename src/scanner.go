@@ -1,6 +1,8 @@
 package src
 
 import (
+	"bytes"
+
 	"github.com/smekuria1/goclox/globals"
 )
 
@@ -105,9 +107,44 @@ func (scanner *Scanner) identifier() Token {
 	for scanner.isAlpha(scanner.peek()) || scanner.isDigit(scanner.peek()) {
 		scanner.advance()
 	}
-	return makeToken(identifierType(), scanner)
+	return makeToken(scanner.identifierType(), scanner)
 }
-func identifierType() globals.TokenType {
+func (scanner *Scanner) identifierType() globals.TokenType {
+	source := *scanner.Source
+	switch source[scanner.Start] {
+	case 'a':
+		return scanner.checkKeyword(1, 2, "nd", globals.TOKEN_AND)
+	case 'c':
+		return scanner.checkKeyword(1, 4, "lass", globals.TOKEN_CLASS)
+	case 'e':
+		return scanner.checkKeyword(1, 3, "lse", globals.TOKEN_ELSE)
+	case 'i':
+		return scanner.checkKeyword(1, 1, "f", globals.TOKEN_IF)
+	case 'n':
+		return scanner.checkKeyword(1, 2, "il", globals.TOKEN_NIL)
+	case 'o':
+		return scanner.checkKeyword(1, 1, "r", globals.TOKEN_OR)
+	case 'p':
+		return scanner.checkKeyword(1, 4, "rint", globals.TOKEN_PRINT)
+	case 'r':
+		return scanner.checkKeyword(1, 5, "eturn", globals.TOKEN_RETURN)
+	case 's':
+		return scanner.checkKeyword(1, 4, "uper", globals.TOKEN_SUPER)
+	case 'v':
+		return scanner.checkKeyword(1, 2, "ar", globals.TOKEN_VAR)
+	case 'w':
+		return scanner.checkKeyword(1, 4, "hile", globals.TOKEN_WHILE)
+	default:
+		return globals.TOKEN_IDENTIFIER
+
+	}
+}
+
+func (scanner *Scanner) checkKeyword(start, length int, rest string, tokenType globals.TokenType) globals.TokenType {
+	if scanner.Current-scanner.Start == start+length &&
+		bytes.Equal([]byte((*scanner.Source)[scanner.Start+start:scanner.Start+start+length]), []byte(rest)) {
+		return tokenType
+	}
 	return globals.TOKEN_IDENTIFIER
 }
 func (scanner *Scanner) isAlpha(c rune) bool {
@@ -171,6 +208,10 @@ func (scanner *Scanner) skipWhitespace() {
 			} else {
 				return
 			}
+
+		case '\n':
+			scanner.Line++
+			scanner.advance()
 		default:
 			return
 		}

@@ -128,29 +128,65 @@ func (vm *VM) run() InterpretResult {
 			constant := vm.READ_CONSTANT()
 			vm.Push(constant)
 			//break
+		case uint8(globals.OP_NIL):
+			vm.Push(NilValue())
+		case uint8(globals.OP_TRUE):
+			vm.Push(BoolValue(true))
+		case uint8(globals.OP_FALSE):
+			vm.Push(BoolValue(false))
+		case uint8(globals.OP_EQUAL):
+			b := vm.Pop()
+			a := vm.Pop()
+			vm.Push(BoolValue(valuesEqual(a, b)))
 		case uint8(globals.OP_RETURN):
-			PrintValue(vm.Pop())
-			fmt.Print("\n")
+			//TODO: Just for debugging remove when adding actual print functionality
+			for i := 0; i < scanner.Line; i++ {
+				PrintValue(vm.Pop())
+				fmt.Print("\n")
+			}
 			return INTERPRET_OK
+		case uint8(globals.OP_GREATER):
+			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })
+		case uint8(globals.OP_LESS):
+			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) < v2.As.(float64)) })
 		case uint8(globals.OP_NEGATE):
-			vm.Push(-(vm.Pop()))
-			//break
+			vm.Push(Value{Type: ValNumber, As: -vm.Pop().As.(float64)})
 		case uint8(globals.OP_ADD):
-			vm.BinaryOp(func(v1, v2 Value) Value { return v1 + v2 })
-			//break
+			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) + v2.As.(float64)} })
 		case uint8(globals.OP_SUBTRACT):
-			vm.BinaryOp(func(v1, v2 Value) Value { return v1 - v2 })
-			//break
+			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) - v2.As.(float64)} })
 		case uint8(globals.OP_MULTIPLY):
-			vm.BinaryOp(func(v1, v2 Value) Value { return v1 * v2 })
-			//break
+			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) * v2.As.(float64)} })
 		case uint8(globals.OP_DIVIDE):
-			vm.BinaryOp(func(v1, v2 Value) Value { return v1 / v2 })
-			//break
+			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) / v2.As.(float64)} })
+		case uint8(globals.OP_NOT):
+			vm.Push(BoolValue(isFalsey(vm.Pop())))
 		default:
 			fmt.Println("Runtime Error at", vm.chunk.Lines[offset])
 			return INTERPRET_RUNTIME_ERROR
 		}
 
 	}
+
+}
+
+func isFalsey(val Value) bool {
+	return IsNil(val) || (IsBool(val) && !AsBool(val))
+}
+
+func valuesEqual(a, b Value) bool {
+	if a.Type != b.Type {
+		return false
+	}
+
+	switch a.Type {
+	case ValBool:
+		return AsBool(a) == AsBool(b)
+	case ValNil:
+		return true
+	case ValNumber:
+		return AsNumber(a) == AsNumber(b)
+	}
+
+	return false
 }

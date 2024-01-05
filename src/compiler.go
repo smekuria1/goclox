@@ -50,7 +50,10 @@ func Compile(source string, chunk *Chunk) bool {
 	parser.HadError = false
 	parser.PanicMode = false
 	advance(source)
-	expression()
+
+	for i := 0; i < scanner.Line; i++ {
+		expression()
+	}
 	consume(globals.TOKEN_EOF, "Expect end of expression.")
 	endCompiler()
 	return !parser.HadError
@@ -68,6 +71,7 @@ func endCompiler() {
 		}
 	}
 	emitReturn()
+
 }
 func getRule(tokentype globals.TokenType) *ParseRule {
 	parserule := rules[tokentype]
@@ -79,6 +83,18 @@ func binary() {
 	parsePrecendece(rule.Precedence + 1)
 
 	switch operatorType {
+	case globals.TOKEN_BANG_EQUAL:
+		emityBytes(uint8(globals.OP_EQUAL), uint8(globals.OP_NOT))
+	case globals.TOKEN_EQUAL_EQUAL:
+		emitByte(uint8(globals.OP_EQUAL))
+	case globals.TOKEN_GREATER:
+		emitByte(uint8(globals.OP_GREATER))
+	case globals.TOKEN_GREATER_EQUAL:
+		emityBytes(uint8(globals.OP_LESS), uint8(globals.OP_NOT))
+	case globals.TOKEN_LESS:
+		emitByte(uint8(globals.OP_LESS))
+	case globals.TOKEN_LESS_EQUAL:
+		emityBytes(uint8(globals.OP_GREATER), uint8(globals.OP_NOT))
 	case globals.TOKEN_PLUS:
 		emitByte(uint8(globals.OP_ADD))
 	case globals.TOKEN_MINUS:
@@ -89,6 +105,20 @@ func binary() {
 		emitByte(uint8(globals.OP_DIVIDE))
 	}
 }
+
+func literal() {
+	switch parser.Previous.TOKENType {
+	case globals.TOKEN_FALSE:
+		emitByte(uint8(globals.OP_FALSE))
+	case globals.TOKEN_NIL:
+		emitByte(uint8(globals.OP_NIL))
+	case globals.TOKEN_TRUE:
+		emitByte(uint8(globals.OP_TRUE))
+	default:
+		return
+	}
+}
+
 func grouping() {
 	expression()
 	consume(globals.TOKEN_RIGHT_PAREN, "Expect ')' after the expression")
@@ -103,7 +133,7 @@ func number() {
 	if err != nil {
 		error(err.Error())
 	}
-	emitConstant(Value(value))
+	emitConstant(NumberValue(value))
 
 }
 
@@ -115,6 +145,8 @@ func unary() {
 	switch opratorType {
 	case globals.TOKEN_MINUS:
 		emitByte(uint8(globals.OP_NEGATE))
+	case globals.TOKEN_BANG:
+		emitByte(uint8(globals.OP_NOT))
 	default:
 		return
 	}
@@ -184,7 +216,7 @@ func advance(source string) {
 			break
 		}
 
-		errorAtCurrent("TEST ERROR AT CURRENT")
+		errorAtCurrent(source[parser.Current.Start:])
 	}
 }
 
@@ -228,31 +260,31 @@ func init() {
 		globals.TOKEN_SEMICOLON:     {nil, nil, PREC_NONE},
 		globals.TOKEN_SLASH:         {nil, binary, PREC_FACTOR},
 		globals.TOKEN_STAR:          {nil, binary, PREC_FACTOR},
-		globals.TOKEN_BANG:          {nil, nil, PREC_NONE},
-		globals.TOKEN_BANG_EQUAL:    {nil, nil, PREC_NONE},
+		globals.TOKEN_BANG:          {unary, nil, PREC_NONE},
+		globals.TOKEN_BANG_EQUAL:    {nil, binary, PREC_EQUALITY},
 		globals.TOKEN_EQUAL:         {nil, nil, PREC_NONE},
-		globals.TOKEN_EQUAL_EQUAL:   {nil, nil, PREC_NONE},
-		globals.TOKEN_GREATER:       {nil, nil, PREC_NONE},
-		globals.TOKEN_GREATER_EQUAL: {nil, nil, PREC_NONE},
-		globals.TOKEN_LESS:          {nil, nil, PREC_NONE},
-		globals.TOKEN_LESS_EQUAL:    {nil, nil, PREC_NONE},
+		globals.TOKEN_EQUAL_EQUAL:   {nil, binary, PREC_EQUALITY},
+		globals.TOKEN_GREATER:       {nil, binary, PREC_COMPARISON},
+		globals.TOKEN_GREATER_EQUAL: {nil, binary, PREC_COMPARISON},
+		globals.TOKEN_LESS:          {nil, binary, PREC_COMPARISON},
+		globals.TOKEN_LESS_EQUAL:    {nil, binary, PREC_COMPARISON},
 		globals.TOKEN_IDENTIFIER:    {nil, nil, PREC_NONE},
 		globals.TOKEN_STRING:        {nil, nil, PREC_NONE},
 		globals.TOKEN_NUMBER:        {number, nil, PREC_NONE},
 		globals.TOKEN_AND:           {nil, nil, PREC_NONE},
 		globals.TOKEN_CLASS:         {nil, nil, PREC_NONE},
 		globals.TOKEN_ELSE:          {nil, nil, PREC_NONE},
-		globals.TOKEN_FALSE:         {nil, nil, PREC_NONE},
+		globals.TOKEN_FALSE:         {literal, nil, PREC_NONE},
 		globals.TOKEN_FOR:           {nil, nil, PREC_NONE},
 		globals.TOKEN_FUN:           {nil, nil, PREC_NONE},
 		globals.TOKEN_IF:            {nil, nil, PREC_NONE},
-		globals.TOKEN_NIL:           {nil, nil, PREC_NONE},
+		globals.TOKEN_NIL:           {literal, nil, PREC_NONE},
 		globals.TOKEN_OR:            {nil, nil, PREC_NONE},
 		globals.TOKEN_PRINT:         {nil, nil, PREC_NONE},
 		globals.TOKEN_RETURN:        {nil, nil, PREC_NONE},
 		globals.TOKEN_SUPER:         {nil, nil, PREC_NONE},
 		globals.TOKEN_THIS:          {nil, nil, PREC_NONE},
-		globals.TOKEN_TRUE:          {nil, nil, PREC_NONE},
+		globals.TOKEN_TRUE:          {literal, nil, PREC_NONE},
 		globals.TOKEN_VAR:           {nil, nil, PREC_NONE},
 		globals.TOKEN_WHILE:         {nil, nil, PREC_NONE},
 		globals.TOKEN_ERROR:         {nil, nil, PREC_NONE},
