@@ -1,12 +1,16 @@
 package src
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 type ValueType int
 
 const (
 	ValBool ValueType = iota
 	ValNil
+	ValObjStr
 	ValNumber
 )
 
@@ -26,6 +30,10 @@ func BoolValue(value bool) Value {
 	return Value{Type: ValBool, As: value}
 }
 
+func ObjStrValue(value *ObjectString) Value {
+	return Value{Type: ValObjStr, As: value}
+}
+
 func NilValue() Value {
 	return Value{Type: ValNil, As: nil}
 }
@@ -38,6 +46,9 @@ func NumberValue(value float64) Value {
 func AsBool(value Value) bool {
 	return value.As.(bool)
 }
+func AsObj(value Value) *ObjectString {
+	return value.As.(*ObjectString)
+}
 
 func AsNumber(value Value) float64 {
 	return value.As.(float64)
@@ -49,6 +60,10 @@ func IsBool(value Value) bool {
 
 func IsNil(value Value) bool {
 	return value.Type == ValNil
+}
+
+func IsValObj(value Value) bool {
+	return value.Type == ValObjStr
 }
 
 func IsNumber(value Value) bool {
@@ -84,5 +99,35 @@ func PrintValue(value Value) {
 		fmt.Print("nil")
 	case ValNumber:
 		fmt.Print(AsNumber(value))
+	case ValObjStr:
+		printObjectStr(value)
 	}
+}
+
+func printObjectStr(object Value) {
+	switch object.As.(*ObjectString).Obj.Type {
+	case ObjStringType:
+		fmt.Printf("%s", AsCString(object))
+	}
+}
+
+func valuesEqual(a, b Value) bool {
+	if a.Type != b.Type {
+		return false
+	}
+
+	switch a.Type {
+	case ValBool:
+		return AsBool(a) == AsBool(b)
+	case ValNil:
+		return true
+	case ValNumber:
+		return AsNumber(a) == AsNumber(b)
+	case ValObjStr:
+		aString := AsObjString(a)
+		bString := AsObjString(b)
+		return reflect.DeepEqual(aString.Chars, bString.Chars)
+	}
+
+	return false
 }

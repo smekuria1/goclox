@@ -9,6 +9,9 @@
 *.dylib
 *.prof
 *.svg
+*.pprof
+*.png
+
 
 # Test binary, built with `go test -c`
 *.test

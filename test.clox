@@ -1,2 +1,10 @@
-!(5 - 4 > 3 * 2 == !nil)
-2000 - 100 != 1900
+"apple" == "orange"
+"hello" == "Hello"
+"cat" == "dog"
+"python" != "Java"
+"world" == "world"
+"sun" != "moon"
+"good" + "morning" == "good morning"
+"open" + "AI" == "openAI"
+"coding " + "is fun" == "coding is fun"
+"chat" + "bot" == "chatbot"

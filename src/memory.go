@@ -45,3 +45,11 @@ func Reallocate(pointer interface{}, oldSize, newSize int) interface{} {
 	return newptrvalue.Interface()
 
 }
+
+func FreeObjects(object *Obj) {
+	for object != nil {
+		next := object.Next
+		object.Next = nil
+		object = next
+	}
+}

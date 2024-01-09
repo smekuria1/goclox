@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"runtime/pprof"
+	"strings"
 
+	"github.com/pkg/profile"
 	"github.com/smekuria1/goclox/globals"
 	"github.com/smekuria1/goclox/src"
 )
@@ -20,16 +20,12 @@ var cpuprof = flag.Bool("cpuprof", false, "write cpu profile to file")
 //var memprof = flag.Bool("memprof", false, "write memory profile to `file`")
 
 func main() {
+
 	flag.BoolVar(&globals.DEBUG_TRACE_EXECUTION, "debugT", false, "Turn on debug trace execution mode")
 	flag.BoolVar(&globals.DEBUG_PRINT_CODE, "debugC", false, "Turn on debug print code mode")
 	flag.Parse()
 	if *cpuprof {
-		f, err := os.Create("cpu.prof")
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
+		defer profile.Start(profile.ProfilePath(".")).Stop()
 	}
 	if *help {
 		fmt.Println("-debugT bool")
@@ -65,12 +61,20 @@ func main() {
 }
 
 func readFile(path string) string {
-	file, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		panic("File not found")
 	}
-
-	return string(file)
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	var lines []string
+	for scanner.Scan() {
+		// if scanner.Text() == "\n" {
+		// 	continue
+		// }
+		lines = append(lines, scanner.Text())
+	}
+	return strings.Join(lines, "\n")
 
 }
 

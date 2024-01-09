@@ -10,7 +10,7 @@ type Scanner struct {
 	Start   int
 	Current int
 	Line    int
-	Source  *string
+	Source  *string // I know this is not ideal stuck too close to the book
 }
 
 type Token struct {

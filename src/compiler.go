@@ -136,6 +136,10 @@ func number() {
 	emitConstant(NumberValue(value))
 
 }
+func stringy() {
+	source := *scanner.Source
+	emitConstant(ObjStrValue(copyString(parser.Previous.Start+1, parser.Previous.Length-2, source, ObjStringType)))
+}
 
 func unary() {
 	opratorType := parser.Previous.TOKENType
@@ -240,7 +244,7 @@ func errorAt(token *Token, message string) {
 	} else if token.TOKENType == globals.TOKEN_ERROR {
 		//
 	} else {
-		fmt.Printf(" at '%s'", string(source[token.Start:]))
+		fmt.Printf(" at '%s'", string(source[token.Start:token.Start+token.Length]))
 	}
 
 	fmt.Printf(": %s\n", message)
@@ -269,7 +273,7 @@ func init() {
 		globals.TOKEN_LESS:          {nil, binary, PREC_COMPARISON},
 		globals.TOKEN_LESS_EQUAL:    {nil, binary, PREC_COMPARISON},
 		globals.TOKEN_IDENTIFIER:    {nil, nil, PREC_NONE},
-		globals.TOKEN_STRING:        {nil, nil, PREC_NONE},
+		globals.TOKEN_STRING:        {stringy, nil, PREC_NONE},
 		globals.TOKEN_NUMBER:        {number, nil, PREC_NONE},
 		globals.TOKEN_AND:           {nil, nil, PREC_NONE},
 		globals.TOKEN_CLASS:         {nil, nil, PREC_NONE},

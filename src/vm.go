@@ -7,13 +7,14 @@ import (
 	"github.com/smekuria1/goclox/globals"
 )
 
-const STACK_MAX = 256
+const STACK_MAX = 30000
 
 type VM struct {
 	chunk    *Chunk
 	ip       []uint8
 	stack    [STACK_MAX]Value
 	stackTop int32
+	objects  *Obj
 }
 type InterpretResult int
 
@@ -32,13 +33,14 @@ var vm VM
 
 func InitVM() {
 	vm.ResetStack()
+	vm.objects = nil
 }
 
 func (vm *VM) ResetStack() {
 	vm.stackTop = 0
 }
 func FreeVM() {
-
+	FreeObjects(vm.objects)
 }
 
 func (vm *VM) Push(value Value) {
@@ -52,6 +54,10 @@ func (vm *VM) Push(value Value) {
 
 func (vm *VM) Pop() Value {
 	vm.stackTop--
+	return vm.stack[vm.stackTop]
+}
+
+func (vm *VM) Peek() Value {
 	return vm.stack[vm.stackTop]
 }
 
@@ -91,6 +97,12 @@ func (vm *VM) READ_BYTE() uint8 {
 func (vm *VM) READ_CONSTANT() Value {
 	result := vm.chunk.Constants.Values[vm.READ_BYTE()]
 	return result
+}
+
+func (vm *VM) runtimeError(offset int, message ...string) {
+	line := vm.chunk.Lines[offset]
+	fmt.Printf("%s , [line %d] in script\n", message[0], line)
+	vm.ResetStack()
 }
 
 /*
@@ -152,7 +164,22 @@ func (vm *VM) run() InterpretResult {
 		case uint8(globals.OP_NEGATE):
 			vm.Push(Value{Type: ValNumber, As: -vm.Pop().As.(float64)})
 		case uint8(globals.OP_ADD):
-			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) + v2.As.(float64)} })
+			b := vm.Pop()
+			a := vm.Pop()
+			if IsObjType(b, ObjStringType) && IsObjType(a, ObjStringType) {
+				aString := AsObjString(a)
+				bString := AsObjString(b)
+				resultString := append(aString.Chars, bString.Chars...)
+				resultObj := allocateString(resultString, len(resultString), ObjStringType)
+				vm.Push(ObjStrValue(resultObj))
+			} else if IsNumber(a) && IsNumber(b) {
+				b := AsNumber(b)
+				a := AsNumber(a)
+				vm.Push(NumberValue(a + b))
+			} else {
+				vm.runtimeError(offset, "Operands must be two numbers or two strings.")
+				return INTERPRET_RUNTIME_ERROR
+			}
 		case uint8(globals.OP_SUBTRACT):
 			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) - v2.As.(float64)} })
 		case uint8(globals.OP_MULTIPLY):
@@ -172,21 +199,4 @@ func (vm *VM) run() InterpretResult {
 
 func isFalsey(val Value) bool {
 	return IsNil(val) || (IsBool(val) && !AsBool(val))
-}
-
-func valuesEqual(a, b Value) bool {
-	if a.Type != b.Type {
-		return false
-	}
-
-	switch a.Type {
-	case ValBool:
-		return AsBool(a) == AsBool(b)
-	case ValNil:
-		return true
-	case ValNumber:
-		return AsNumber(a) == AsNumber(b)
-	}
-
-	return false
 }
