@@ -15,6 +15,7 @@ type ObjectString struct {
 	Obj    Obj
 	Length int
 	Chars  []byte
+	Hash   uint32
 }
 
 func OBJStrType(value Value) ObjType {
@@ -42,14 +43,28 @@ func AsCString(value Value) string {
 
 func copyString(start, length int, source string, _type ObjType) *ObjectString {
 	heapChars := make([]byte, length+1)
+	chars := source[start : start+length]
+	hash := hashString([]byte(chars), length)
 	copy(heapChars, source[start:start+length])
-	return allocateString(heapChars, length, _type)
+	return allocateString(heapChars, length, _type, hash)
 }
 
-func allocateString(chars []byte, length int, _type ObjType) *ObjectString {
+func hashString(key []byte, length int) uint32 {
+	hash := uint32(2166136261)
+	const prime = 16777619
+
+	for i := 0; i < length; i++ {
+		hash ^= uint32(key[i])
+		hash *= prime
+	}
+	return hash
+}
+
+func allocateString(chars []byte, length int, _type ObjType, hash uint32) *ObjectString {
 	str := &ObjectString{
 		Length: length,
 		Chars:  chars,
+		Hash:   hash,
 		Obj:    allocateObject(_type),
 	}
 	return str

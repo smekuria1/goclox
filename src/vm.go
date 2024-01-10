@@ -170,7 +170,8 @@ func (vm *VM) run() InterpretResult {
 				aString := AsObjString(a)
 				bString := AsObjString(b)
 				resultString := append(aString.Chars, bString.Chars...)
-				resultObj := allocateString(resultString, len(resultString), ObjStringType)
+				hash := hashString(resultString, len(resultString))
+				resultObj := allocateString(resultString, len(resultString), ObjStringType, hash)
 				vm.Push(ObjStrValue(resultObj))
 			} else if IsNumber(a) && IsNumber(b) {
 				b := AsNumber(b)

@@ -27,9 +27,14 @@ func GrowArrayLines(lines []int, oldcap, newcap int) []int {
 	return Reallocate(lines, oldcap, newcap).([]int)
 }
 
-func FreeArray(code any, cap int) {
-	Reallocate(code, cap, 0)
+func GrowArrayEntries(entries []Entry, oldcap, newcap int) []Entry {
+	return Reallocate(entries, oldcap, newcap).([]Entry)
 }
+
+func FreeArray(array any, cap int) {
+	Reallocate(array, cap, 0)
+}
+
 func Reallocate(pointer interface{}, oldSize, newSize int) interface{} {
 	oldptrvalue := reflect.ValueOf(pointer)
 	if newSize == 0 {

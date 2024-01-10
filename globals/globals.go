@@ -71,7 +71,6 @@ const (
 	TOKEN_ERROR
 	TOKEN_EOF
 )
-const MAXIMUM_OVERFLOW = 30000
 
 var DEBUG_TRACE_EXECUTION = false
 var DEBUG_PRINT_CODE = false

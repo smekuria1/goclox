@@ -69,9 +69,9 @@ func readFile(path string) string {
 	scanner.Split(bufio.ScanLines)
 	var lines []string
 	for scanner.Scan() {
-		// if scanner.Text() == "\n" {
-		// 	continue
-		// }
+		if scanner.Text() == "\n" {
+			continue
+		}
 		lines = append(lines, scanner.Text())
 	}
 	return strings.Join(lines, "\n")
