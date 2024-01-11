@@ -1,5 +1,9 @@
 package src
 
+/*Add support for keys of the other primitive types: numbers, Booleans, and nil.
+Later, clox will support user-defined classes. If we want to support keys that are
+instances of those classes, what kind of complexity does that add
+*/
 const TABLE_MAX_LOAD float32 = 0.75
 
 type Table struct {
@@ -99,7 +103,7 @@ func findEntry(entries []Entry, capacity int, key *ObjectString) *Entry {
 	}
 }
 
-func adjustTable(table *Table, capacity, oldcap int) {
+func adjustTable(table *Table, oldcap, capacity int) {
 	entries := GrowArrayEntries(table.entries, oldcap, capacity)
 
 	for i := 0; i < capacity; i++ {

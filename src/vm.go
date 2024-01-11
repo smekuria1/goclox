@@ -15,6 +15,7 @@ type VM struct {
 	stack    [STACK_MAX]Value
 	stackTop int32
 	objects  *Obj
+	strings  Table
 }
 type InterpretResult int
 
@@ -34,12 +35,14 @@ var vm VM
 func InitVM() {
 	vm.ResetStack()
 	vm.objects = nil
+	InitTable(&vm.strings)
 }
 
 func (vm *VM) ResetStack() {
 	vm.stackTop = 0
 }
 func FreeVM() {
+	Freetable(&vm.strings)
 	FreeObjects(vm.objects)
 }
 

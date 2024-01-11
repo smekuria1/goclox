@@ -1,8 +1,8 @@
 package src
 
 import (
+	"bytes"
 	"fmt"
-	"reflect"
 )
 
 type ValueType int
@@ -46,8 +46,8 @@ func NumberValue(value float64) Value {
 func AsBool(value Value) bool {
 	return value.As.(bool)
 }
-func AsObj(value Value) *ObjectString {
-	return value.As.(*ObjectString)
+func AsObj(value Value) *Obj {
+	return value.As.(*Obj)
 }
 
 func AsNumber(value Value) float64 {
@@ -124,10 +124,15 @@ func valuesEqual(a, b Value) bool {
 	case ValNumber:
 		return AsNumber(a) == AsNumber(b)
 	case ValObjStr:
-		aString := AsObjString(a)
-		bString := AsObjString(b)
-		return reflect.DeepEqual(aString.Chars, bString.Chars)
+		aString := removeNullBytes(AsObjString(a).Chars)
+		bString := removeNullBytes(AsObjString(b).Chars)
+
+		return bytes.Equal(aString, bString)
 	}
 
 	return false
+}
+
+func removeNullBytes(input []byte) []byte {
+	return bytes.Replace(input, []byte{0}, []byte{}, -1)
 }

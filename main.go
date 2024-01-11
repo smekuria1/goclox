@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/pkg/profile"
 	"github.com/smekuria1/goclox/globals"
@@ -61,20 +60,21 @@ func main() {
 }
 
 func readFile(path string) string {
-	file, err := os.Open(path)
-	if err != nil {
-		panic("File not found")
-	}
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-	var lines []string
-	for scanner.Scan() {
-		if scanner.Text() == "\n" {
-			continue
-		}
-		lines = append(lines, scanner.Text())
-	}
-	return strings.Join(lines, "\n")
+	// file, err := os.Open(path)
+	// if err != nil {
+	// 	panic("File not found")
+	// }
+	// scanner := bufio.NewScanner(file)
+	// scanner.Split(bufio.ScanLines)
+	// var lines []string
+	// for scanner.Scan() {
+	// 	if scanner.Text() == "\n" {
+	// 		continue
+	// 	}
+	// 	lines = append(lines, scanner.Text())
+	// }
+	file, _ := os.ReadFile(path)
+	return string(file)
 
 }
 
