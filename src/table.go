@@ -17,38 +17,38 @@ type Entry struct {
 	value Value
 }
 
-func InitTable(table *Table) {
+func (table *Table) InitTable() {
 	table.capacity = 0
 	table.count = 0
 	table.entries = nil
 }
 
-func Freetable(table *Table) {
+func (table *Table) Freetable() {
 	FreeArray(table.entries, int(table.capacity))
-	InitTable(table)
+	table.InitTable()
 }
 
-func TableSet(table *Table, key *ObjectString, value Value) bool {
+func (table *Table) TableSet(key *ObjectString, value Value) bool {
 	if table.count+1 > table.capacity*TABLE_MAX_LOAD {
 		oldcap := table.capacity
 		capacity := GrowCapacity(int(table.capacity))
-		adjustTable(table, int(oldcap), capacity)
+		table.adjustTable(int(oldcap), capacity)
 	}
-	entry := findEntry(table.entries, int(table.capacity), key)
+	entry, index := table.findEntry(int(table.capacity), key)
 	isNewKey := entry.key == nil
 	if isNewKey && IsNil(entry.value) {
 		table.count++
 	}
-	entry.key = key
-	entry.value = value
+	table.entries[index].key = key
+	table.entries[index].value = value
 	return isNewKey
 }
 
-func TableDelete(table *Table, key *ObjectString) bool {
+func (table *Table) TableDelete(key *ObjectString) bool {
 	if table.count == 0 {
 		return false
 	}
-	entry := findEntry(table.entries, int(table.capacity), key)
+	entry, _ := table.findEntry(int(table.capacity), key)
 	if entry.key == nil {
 		return false
 	}
@@ -58,21 +58,21 @@ func TableDelete(table *Table, key *ObjectString) bool {
 	return true
 }
 
-func TableAddAll(from, to *Table) {
+func (to *Table) TableAddAll(from *Table) {
 	for i := 0; i < int(from.capacity); i++ {
 		entry := from.entries[i]
 		if entry.key != nil {
-			TableSet(to, entry.key, entry.value)
+			to.TableSet(entry.key, entry.value)
 		}
 	}
 }
 
-func TableGet(table *Table, key *ObjectString, value *Value) bool {
+func (table Table) TableGet(key *ObjectString, value *Value) bool {
 	if table.count == 0 {
 		return false
 	}
 
-	entry := findEntry(table.entries, int(table.capacity), key)
+	entry, _ := table.findEntry(int(table.capacity), key)
 	if entry.key == nil {
 		return false
 	}
@@ -80,30 +80,30 @@ func TableGet(table *Table, key *ObjectString, value *Value) bool {
 	return true
 }
 
-func findEntry(entries []Entry, capacity int, key *ObjectString) *Entry {
+func (table *Table) findEntry(capacity int, key *ObjectString) (*Entry, uint32) {
 	index := key.Hash % uint32(capacity)
 	var tombstone *Entry = nil
 	for {
-		entry := entries[index]
+		entry := table.entries[index]
 		if entry.key == nil {
 			if IsNil(entry.value) {
 				if tombstone != nil {
-					return tombstone
+					return tombstone, index
 				}
-				return &entry
+				return &entry, index
 			} else {
 				if tombstone == nil {
 					tombstone = &entry
 				}
 			}
 		} else if entry.key == key {
-			return &entry
+			return &entry, index
 		}
 		index = (index + 1) % uint32(capacity)
 	}
 }
 
-func adjustTable(table *Table, oldcap, capacity int) {
+func (table *Table) adjustTable(oldcap, capacity int) {
 	entries := GrowArrayEntries(table.entries, oldcap, capacity)
 
 	for i := 0; i < capacity; i++ {
@@ -117,7 +117,7 @@ func adjustTable(table *Table, oldcap, capacity int) {
 			continue
 		}
 
-		dest := findEntry(entries, capacity, entry.key)
+		dest, _ := table.findEntry(capacity, entry.key)
 		dest.key = entry.key
 		dest.value = entry.value
 		table.count++

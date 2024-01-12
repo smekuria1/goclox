@@ -1,1 +1,6 @@
-"good " + "morning" == "good morning"
+var ab = "cafe";
+print ab;
+var abebe = "Soulja76";
+var solo = 1 + 1;
+print solo;
+print abebe;

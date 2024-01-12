@@ -49,7 +49,7 @@ func copyString(start, length int, source string, _type ObjType) *ObjectString {
 	heapChars := make([]byte, length+1)
 	chars := source[start : start+length]
 	hash := hashString([]byte(chars), length)
-	interned := tableFindString(&vm.strings, []byte(chars), length, hash)
+	interned := tableFindString(vm.strings, []byte(chars), length, hash)
 	if interned != nil {
 		return interned
 	}
@@ -108,7 +108,7 @@ func allocateString(chars []byte, length int, _type ObjType, hash uint32) *Objec
 		Hash:   hash,
 		Obj:    allocateObject(_type),
 	}
-	TableSet(&vm.strings, str, NilValue())
+	vm.strings.TableSet(str, NilValue())
 	return str
 }
 

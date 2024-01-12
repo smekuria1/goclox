@@ -7,7 +7,7 @@ import (
 	"github.com/smekuria1/goclox/globals"
 )
 
-const STACK_MAX = 30000
+const STACK_MAX = 256
 
 type VM struct {
 	chunk    *Chunk
@@ -15,7 +15,8 @@ type VM struct {
 	stack    [STACK_MAX]Value
 	stackTop int32
 	objects  *Obj
-	strings  Table
+	strings  *Table
+	globals  *Table
 }
 type InterpretResult int
 
@@ -35,14 +36,19 @@ var vm VM
 func InitVM() {
 	vm.ResetStack()
 	vm.objects = nil
-	InitTable(&vm.strings)
+	vm.strings = &Table{}
+	vm.globals = &Table{}
+	vm.globals.InitTable()
+	vm.strings.InitTable()
 }
 
 func (vm *VM) ResetStack() {
 	vm.stackTop = 0
 }
 func FreeVM() {
-	Freetable(&vm.strings)
+
+	vm.strings.Freetable()
+	vm.globals.Freetable()
 	FreeObjects(vm.objects)
 }
 
@@ -61,6 +67,9 @@ func (vm *VM) Pop() Value {
 }
 
 func (vm *VM) Peek() Value {
+	if vm.stackTop == 1 {
+		return vm.stack[vm.stackTop-1]
+	}
 	return vm.stack[vm.stackTop]
 }
 
@@ -104,7 +113,10 @@ func (vm *VM) READ_CONSTANT() Value {
 
 func (vm *VM) runtimeError(offset int, message ...string) {
 	line := vm.chunk.Lines[offset]
-	fmt.Printf("%s , [line %d] in script\n", message[0], line)
+	fmt.Printf("%s , [line %d] ", message[0], line)
+	if len(message) > 1 {
+		fmt.Printf("%s\n", message[1])
+	}
 	vm.ResetStack()
 }
 
@@ -153,12 +165,36 @@ func (vm *VM) run() InterpretResult {
 			b := vm.Pop()
 			a := vm.Pop()
 			vm.Push(BoolValue(valuesEqual(a, b)))
-		case uint8(globals.OP_RETURN):
-			//TODO: Just for debugging remove when adding actual print functionality
-			for i := 0; i < scanner.Line; i++ {
-				PrintValue(vm.Pop())
-				fmt.Print("\n")
+		case uint8(globals.OP_PRINT):
+			PrintValue(vm.Pop())
+			fmt.Printf("\n")
+		case uint8(globals.OP_POP):
+			vm.Pop()
+		case uint8(globals.OP_GET_GLOBAL):
+			name := readString()
+			var value Value
+			if !vm.globals.TableGet(name, &value) {
+				vm.runtimeError(offset, "Undefined Variable")
+				return INTERPRET_RUNTIME_ERROR
 			}
+			vm.Push(value)
+		case uint8(globals.OP_SET_GLOBAL):
+			name := readString()
+			if vm.globals.TableSet(name, vm.Peek()) {
+				vm.globals.TableDelete(name)
+				vm.runtimeError(offset, "Undefined variable", string(name.Chars))
+				return INTERPRET_RUNTIME_ERROR
+			}
+		case uint8(globals.OP_DEFINE_GLOBAL):
+			name := readString()
+			peeked := vm.Peek()
+			vm.globals.TableSet(name, peeked)
+			vm.Pop()
+		case uint8(globals.OP_RETURN):
+			// //TODO: Just for debugging remove when adding actual print functionality
+			// for i := 0; i < scanner.Line; i++ {
+			// 	PrintValue(vm.Pop())
+			// 	fmt.Print("\n")
 			return INTERPRET_OK
 		case uint8(globals.OP_GREATER):
 			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })
@@ -203,4 +239,8 @@ func (vm *VM) run() InterpretResult {
 
 func isFalsey(val Value) bool {
 	return IsNil(val) || (IsBool(val) && !AsBool(val))
+}
+
+func readString() *ObjectString {
+	return AsObjString(vm.READ_CONSTANT())
 }

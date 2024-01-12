@@ -39,7 +39,7 @@ type ParseRule struct {
 	Precedence Precedence
 }
 
-type Parsefn func()
+type Parsefn func(canAssign bool)
 
 var parser Parser
 
@@ -49,12 +49,15 @@ func Compile(source string, chunk *Chunk) bool {
 	compilingChunk = chunk
 	parser.HadError = false
 	parser.PanicMode = false
-	advance(source)
+	advance(*scanner.Source)
 
-	for i := 0; i < scanner.Line; i++ {
-		expression()
+	// for i := 0; i < scanner.Line; i++ {
+	// 	expression()
+	// }
+	// consume(globals.TOKEN_EOF, "Expect end of expression.")
+	for !match(globals.TOKEN_EOF) {
+		declaration()
 	}
-	consume(globals.TOKEN_EOF, "Expect end of expression.")
 	endCompiler()
 	return !parser.HadError
 
@@ -62,6 +65,95 @@ func Compile(source string, chunk *Chunk) bool {
 
 func expression() {
 	parsePrecendece(PREC_ASSIGNMENT)
+}
+
+func declaration() {
+	if match(globals.TOKEN_VAR) {
+		varDeclaration()
+	} else {
+		statement()
+	}
+	if parser.PanicMode {
+		synchronize()
+	}
+}
+
+func varDeclaration() {
+	global := parseVariable("Expect variable name. ")
+	if match(globals.TOKEN_EQUAL) {
+		expression()
+	} else {
+		emitByte(uint8(globals.OP_NIL))
+	}
+	consume(globals.TOKEN_SEMICOLON, "Expect ';' after variable declaration.")
+	defineVariable(global)
+}
+
+func parseVariable(errorMessage string) uint8 {
+	consume(globals.TOKEN_IDENTIFIER, errorMessage)
+	return identifierConstant(&parser.Previous)
+}
+
+func identifierConstant(name *Token) uint8 {
+	return makeConstant(ObjStrValue(copyString(name.Start, name.Length, *scanner.Source, ObjStringType)))
+}
+
+func defineVariable(global uint8) {
+	emityBytes(uint8(globals.OP_DEFINE_GLOBAL), global)
+}
+
+func statement() {
+	if match(globals.TOKEN_PRINT) {
+		printStatement()
+	} else {
+		expressionStatement()
+	}
+}
+
+func expressionStatement() {
+	expression()
+	consume(globals.TOKEN_SEMICOLON, "Expext ';' after expression")
+	emitByte(uint8(globals.OP_POP))
+}
+func match(_type globals.TokenType) bool {
+	if !check(_type) {
+		return false
+	}
+	advance(*scanner.Source)
+	return true
+}
+
+func check(_type globals.TokenType) bool {
+	return parser.Current.TOKENType == _type
+}
+
+func printStatement() {
+	expression()
+	consume(globals.TOKEN_SEMICOLON, "Expect ';' after value.")
+	emitByte(uint8(globals.OP_PRINT))
+}
+
+func synchronize() {
+	parser.PanicMode = false
+	for parser.Current.TOKENType != globals.TOKEN_EOF {
+		if parser.Previous.TOKENType == globals.TOKEN_SEMICOLON {
+			return
+		}
+		switch parser.Current.TOKENType {
+		case globals.TOKEN_CLASS:
+		case globals.TOKEN_FUN:
+		case globals.TOKEN_VAR:
+		case globals.TOKEN_FOR:
+		case globals.TOKEN_IF:
+		case globals.TOKEN_WHILE:
+		case globals.TOKEN_PRINT:
+		case globals.TOKEN_RETURN:
+			return
+		default:
+			// Do nothing.
+		}
+		advance(*scanner.Source)
+	}
 }
 
 func endCompiler() {
@@ -77,7 +169,7 @@ func getRule(tokentype globals.TokenType) *ParseRule {
 	parserule := rules[tokentype]
 	return &parserule
 }
-func binary() {
+func binary(canAssign bool) {
 	operatorType := parser.Previous.TOKENType
 	rule := getRule(operatorType)
 	parsePrecendece(rule.Precedence + 1)
@@ -106,7 +198,7 @@ func binary() {
 	}
 }
 
-func literal() {
+func literal(canAssign bool) {
 	switch parser.Previous.TOKENType {
 	case globals.TOKEN_FALSE:
 		emitByte(uint8(globals.OP_FALSE))
@@ -119,7 +211,7 @@ func literal() {
 	}
 }
 
-func grouping() {
+func grouping(canAssign bool) {
 	expression()
 	consume(globals.TOKEN_RIGHT_PAREN, "Expect ')' after the expression")
 }
@@ -127,7 +219,7 @@ func emitReturn() {
 	emitByte(uint8(globals.OP_RETURN))
 }
 
-func number() {
+func number(canAssign bool) {
 	source := *scanner.Source
 	value, err := strconv.ParseFloat(source[parser.Previous.Start:parser.Previous.Start+parser.Previous.Length], 64)
 	if err != nil {
@@ -136,12 +228,24 @@ func number() {
 	emitConstant(NumberValue(value))
 
 }
-func stringy() {
+func stringy(canAssign bool) {
 	source := *scanner.Source
 	emitConstant(ObjStrValue(copyString(parser.Previous.Start+1, parser.Previous.Length-2, source, ObjStringType)))
 }
+func variable(canAssign bool) {
+	namedVariable(parser.Previous, canAssign)
+}
 
-func unary() {
+func namedVariable(name Token, canAssign bool) {
+	arg := identifierConstant(&name)
+	if match(globals.TOKEN_EQUAL) && canAssign {
+		expression()
+		emityBytes(uint8(globals.OP_SET_GLOBAL), arg)
+	} else {
+		emityBytes(uint8(globals.OP_GET_GLOBAL), arg)
+	}
+}
+func unary(canAssign bool) {
 	opratorType := parser.Previous.TOKENType
 
 	parsePrecendece(PREC_UNAR)
@@ -164,13 +268,18 @@ func parsePrecendece(precedence Precedence) {
 		error("Expect expression")
 		return
 	}
-	prefixRule()
+	canAssign := precedence <= PREC_ASSIGNMENT
+	prefixRule(canAssign)
 
 	for precedence <= getRule(parser.Current.TOKENType).Precedence {
 		advSource := *scanner.Source
 		advance(advSource[parser.Current.Start:])
 		infixRule := getRule(parser.Previous.TOKENType).Infix
-		infixRule()
+		infixRule(canAssign)
+	}
+
+	if canAssign && match(globals.TOKEN_EQUAL) {
+		error("Invalid assignment target")
 	}
 }
 
@@ -272,7 +381,7 @@ func init() {
 		globals.TOKEN_GREATER_EQUAL: {nil, binary, PREC_COMPARISON},
 		globals.TOKEN_LESS:          {nil, binary, PREC_COMPARISON},
 		globals.TOKEN_LESS_EQUAL:    {nil, binary, PREC_COMPARISON},
-		globals.TOKEN_IDENTIFIER:    {nil, nil, PREC_NONE},
+		globals.TOKEN_IDENTIFIER:    {variable, nil, PREC_NONE},
 		globals.TOKEN_STRING:        {stringy, nil, PREC_NONE},
 		globals.TOKEN_NUMBER:        {number, nil, PREC_NONE},
 		globals.TOKEN_AND:           {nil, nil, PREC_NONE},
