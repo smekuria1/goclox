@@ -111,12 +111,17 @@ func (vm *VM) READ_CONSTANT() Value {
 	return result
 }
 
-func (vm *VM) runtimeError(offset int, message ...string) {
+func (vm *VM) runtimeError(offset int, runoffset int, message ...string) {
+
+	if !globals.DEBUG_TRACE_EXECUTION {
+		offset = runoffset
+	}
 	line := vm.chunk.Lines[offset]
-	fmt.Printf("%s , [line %d] ", message[0], line)
+	fmt.Printf("%s line[%d]", message[0], line)
 	if len(message) > 1 {
 		fmt.Printf("%s\n", message[1])
 	}
+
 	vm.ResetStack()
 }
 
@@ -135,6 +140,7 @@ Returns:
 */
 func (vm *VM) run() InterpretResult {
 	offset := 0
+	runoffset := 0
 	for {
 		if globals.DEBUG_TRACE_EXECUTION {
 			fmt.Printf("     ")
@@ -154,38 +160,48 @@ func (vm *VM) run() InterpretResult {
 		case uint8(globals.OP_CONSTANT):
 			constant := vm.READ_CONSTANT()
 			vm.Push(constant)
+			runoffset += 2
 			//break
 		case uint8(globals.OP_NIL):
 			vm.Push(NilValue())
+			runoffset += 1
 		case uint8(globals.OP_TRUE):
 			vm.Push(BoolValue(true))
+			runoffset += 1
 		case uint8(globals.OP_FALSE):
 			vm.Push(BoolValue(false))
+			runoffset += 1
 		case uint8(globals.OP_EQUAL):
 			b := vm.Pop()
 			a := vm.Pop()
 			vm.Push(BoolValue(valuesEqual(a, b)))
+			runoffset += 1
 		case uint8(globals.OP_PRINT):
 			PrintValue(vm.Pop())
 			fmt.Printf("\n")
+			runoffset += 1
 		case uint8(globals.OP_POP):
 			vm.Pop()
+			runoffset += 1
 		case uint8(globals.OP_GET_GLOBAL):
 			name := readString()
 			var value Value
+			runoffset += 2
 			if !vm.globals.TableGet(name, &value) {
-				vm.runtimeError(offset, "Undefined Variable")
+				vm.runtimeError(offset, runoffset, "Undefined Variable")
 				return INTERPRET_RUNTIME_ERROR
 			}
 			vm.Push(value)
 		case uint8(globals.OP_SET_GLOBAL):
+			runoffset += 2
 			name := readString()
 			if vm.globals.TableSet(name, vm.Peek()) {
 				vm.globals.TableDelete(name)
-				vm.runtimeError(offset, "Undefined variable", string(name.Chars))
+				vm.runtimeError(offset, runoffset, "Undefined variable", string(name.Chars))
 				return INTERPRET_RUNTIME_ERROR
 			}
 		case uint8(globals.OP_DEFINE_GLOBAL):
+			runoffset += 2
 			name := readString()
 			peeked := vm.Peek()
 			vm.globals.TableSet(name, peeked)
@@ -195,14 +211,19 @@ func (vm *VM) run() InterpretResult {
 			// for i := 0; i < scanner.Line; i++ {
 			// 	PrintValue(vm.Pop())
 			// 	fmt.Print("\n")
+			runoffset += 1
 			return INTERPRET_OK
 		case uint8(globals.OP_GREATER):
+			runoffset += 1
 			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })
 		case uint8(globals.OP_LESS):
+			runoffset += 1
 			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) < v2.As.(float64)) })
 		case uint8(globals.OP_NEGATE):
+			runoffset += 1
 			vm.Push(Value{Type: ValNumber, As: -vm.Pop().As.(float64)})
 		case uint8(globals.OP_ADD):
+			runoffset += 1
 			b := vm.Pop()
 			a := vm.Pop()
 			if IsObjType(b, ObjStringType) && IsObjType(a, ObjStringType) {
@@ -217,16 +238,20 @@ func (vm *VM) run() InterpretResult {
 				a := AsNumber(a)
 				vm.Push(NumberValue(a + b))
 			} else {
-				vm.runtimeError(offset, "Operands must be two numbers or two strings.")
+				vm.runtimeError(offset, runoffset, "Operands must be two numbers or two strings.")
 				return INTERPRET_RUNTIME_ERROR
 			}
 		case uint8(globals.OP_SUBTRACT):
+			runoffset += 1
 			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) - v2.As.(float64)} })
 		case uint8(globals.OP_MULTIPLY):
+			runoffset += 1
 			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) * v2.As.(float64)} })
 		case uint8(globals.OP_DIVIDE):
+			runoffset += 1
 			vm.BinaryOp(func(v1, v2 Value) Value { return Value{Type: ValNumber, As: v1.As.(float64) / v2.As.(float64)} })
 		case uint8(globals.OP_NOT):
+			runoffset += 1
 			vm.Push(BoolValue(isFalsey(vm.Pop())))
 		default:
 			fmt.Println("Runtime Error at", vm.chunk.Lines[offset])
