@@ -6,6 +6,10 @@ import (
 	"github.com/smekuria1/goclox/globals"
 )
 
+// DisassembleChunk prints the disassembled instructions of a given chunk.
+//
+// The function takes a pointer to a Chunk struct and a name string as parameters.
+// It does not return any value.
 func DisassembleChunk(chunk *Chunk, name string) {
 	fmt.Printf("== %s ==\n", name)
 
@@ -14,6 +18,14 @@ func DisassembleChunk(chunk *Chunk, name string) {
 	}
 }
 
+// DisassembleInstruction disassembles an instruction in the given chunk at the specified offset.
+//
+// Parameters:
+// - chunk: A pointer to the Chunk struct representing the chunk of code.
+// - offset: An integer representing the offset of the instruction in the chunk.
+//
+// Return:
+// - An integer representing the new offset after processing the instruction.
 func DisassembleInstruction(chunk *Chunk, offset int) int {
 	fmt.Printf("%04d ", offset)
 
@@ -26,44 +38,49 @@ func DisassembleInstruction(chunk *Chunk, offset int) int {
 	instruction := chunk.Code[offset]
 
 	switch instruction {
-	case uint8(globals.OP_RETURN):
-		return simpleInstruction("OP_RETURN", offset)
-	case uint8(globals.OP_CONSTANT):
-		return constantInstruction("OP_CONSTANT", chunk, offset)
-	case uint8(globals.OP_NIL):
-		return simpleInstruction("OP_NIL", offset)
-	case uint8(globals.OP_TRUE):
-		return simpleInstruction("OP_TRUE", offset)
-	case uint8(globals.OP_FALSE):
-		return simpleInstruction("OP_FALSE", offset)
-	case uint8(globals.OP_NEGATE):
-		return simpleInstruction("OP_NEGATE", offset)
-	case uint8(globals.OP_ADD):
-		return simpleInstruction("OP_ADD", offset)
-	case uint8(globals.OP_SUBTRACT):
-		return simpleInstruction("OP_SUBTRACT", offset)
-	case uint8(globals.OP_MULTIPLY):
-		return simpleInstruction("OP_MULTIPLY", offset)
-	case uint8(globals.OP_DIVIDE):
-		return simpleInstruction("OP_DIVIDE", offset)
-	case uint8(globals.OP_NOT):
-		return simpleInstruction("OP_NOT", offset)
-	case uint8(globals.OP_EQUAL):
-		return simpleInstruction("OP_EQUAL", offset)
-	case uint8(globals.OP_GREATER):
-		return simpleInstruction("OP_GREATER", offset)
-	case uint8(globals.OP_LESS):
-		return simpleInstruction("OP_LESS", offset)
-	case uint8(globals.OP_PRINT):
-		return simpleInstruction("OP_PRINT", offset)
-	case uint8(globals.OP_POP):
-		return simpleInstruction("OP_POP", offset)
-	case uint8(globals.OP_DEFINE_GLOBAL):
-		return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset)
-	case uint8(globals.OP_GET_GLOBAL):
-		return constantInstruction("OP_GET_GLOBAL", chunk, offset)
-	case uint8(globals.OP_SET_GLOBAL):
-		return constantInstruction("OP_SET_GLOBAL", chunk, offset)
+	case uint8(globals.OpReturn):
+		return simpleInstruction("OpReturn", offset)
+	case uint8(globals.OpConstant):
+		return constantInstruction("OpConstant", chunk, offset)
+	case uint8(globals.OpNil):
+		return simpleInstruction("OpNil", offset)
+	case uint8(globals.OpTrue):
+		return simpleInstruction("OpTrue", offset)
+	case uint8(globals.OpFalse):
+		return simpleInstruction("OpFalse", offset)
+	case uint8(globals.OpNegate):
+		return simpleInstruction("OpNegate", offset)
+	case uint8(globals.OpAdd):
+		return simpleInstruction("OpAdd", offset)
+	case uint8(globals.OpSubtract):
+		return simpleInstruction("OpSubtract", offset)
+	case uint8(globals.OpMultiply):
+		return simpleInstruction("OpMultiply", offset)
+	case uint8(globals.OpDivide):
+		return simpleInstruction("OpDivide", offset)
+	case uint8(globals.OpNot):
+		return simpleInstruction("OpNot", offset)
+	case uint8(globals.OpEqual):
+		return simpleInstruction("OpEqual", offset)
+	case uint8(globals.OpGreater):
+		return simpleInstruction("OpGreater", offset)
+	case uint8(globals.OpLess):
+		return simpleInstruction("OpLess", offset)
+	case uint8(globals.OpPrint):
+		return simpleInstruction("OpPrint", offset)
+	case uint8(globals.OpPop):
+		return simpleInstruction("OpPop", offset)
+	case uint8(globals.OpDefineGlobal):
+		return constantInstruction("OpDefineGlobal", chunk, offset)
+	case uint8(globals.OpGetGlobal):
+		return constantInstruction("OpGetGlobal", chunk, offset)
+	case uint8(globals.OpSetGlobal):
+		return constantInstruction("OpSetGlobal", chunk, offset)
+	case uint8(globals.OpGetLocal):
+		return byteInstruction("OpGetLocal", chunk, offset)
+	case uint8(globals.OpSetLocal):
+		return byteInstruction("OpSetLocal", chunk, offset)
+
 	default:
 		fmt.Println("Unknown opcode ", instruction)
 		return offset + 1
@@ -71,15 +88,41 @@ func DisassembleInstruction(chunk *Chunk, offset int) int {
 
 }
 
+// simpleInstruction prints the given opcode and returns the offset incremented by 1.
+//
+// Parameters:
+// - opcode: a string representing the opcode to be printed.
+// - offset: an integer representing the current offset.
+//
+// Returns:
+// - an integer representing the new offset after incrementing it by 1.
 func simpleInstruction(opcode string, offset int) int {
 	fmt.Printf("%s\n", opcode)
 	return offset + 1
 }
 
+// constantInstruction prints an opcode and its corresponding constant value.
+//
+// It takes in the opcode string, the chunk pointer, and the offset integer as parameters.
+// It returns an integer representing the updated offset.
 func constantInstruction(opcode string, chunk *Chunk, offset int) int {
 	constant := chunk.Code[offset+1]
 	fmt.Printf("%-16s %4d '", opcode, constant)
 	PrintValue(chunk.Constants.Values[constant])
 	fmt.Printf("'\n")
+	return offset + 2
+}
+
+// byteInstruction prints the opcode and slot of a byte instruction.
+//
+// It takes the following parameter(s):
+// - opcode: a string representing the opcode of the byte instruction.
+// - chunk: a pointer to the Chunk struct representing the chunk of code being executed.
+// - offset: an integer representing the offset of the current byte instruction in the chunk.
+//
+// It returns an integer representing the updated offset after processing the byte instruction.
+func byteInstruction(opcode string, chunk *Chunk, offset int) int {
+	slot := chunk.Code[offset+1]
+	fmt.Printf("%-16s %4d\n", opcode, slot)
 	return offset + 2
 }

@@ -6,7 +6,7 @@ func TestVM_run(t *testing.T) {
 	type fields struct {
 		chunk    *Chunk
 		ip       []uint8
-		stack    [STACK_MAX]Value
+		stack    [StackMax]Value
 		stackTop int32
 	}
 	tests := []struct {

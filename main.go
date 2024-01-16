@@ -1,3 +1,5 @@
+// s:/opensource/goclox/main.go
+// Goclox v0.0.1
 package main
 
 import (

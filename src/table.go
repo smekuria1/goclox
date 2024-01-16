@@ -4,32 +4,52 @@ package src
 Later, clox will support user-defined classes. If we want to support keys that are
 instances of those classes, what kind of complexity does that add
 */
-const TABLE_MAX_LOAD float32 = 0.75
 
+// TableMaxLoad is the maximum load factor for the table.
+const TableMaxLoad float32 = 0.75
+
+// Table is a struct representing a table data structure.
 type Table struct {
-	capacity float32
-	count    float32
-	entries  []Entry
+	capacity float32 // The maximum capacity of the table.
+	count    float32 // The current count of entries in the table.
+	entries  []Entry // The array of entries in the table.
 }
 
+// Entry is a struct representing an entry in the table.
 type Entry struct {
-	key   *ObjectString
-	value Value
+	key   *ObjectString // The key of the entry, represented as a pointer to an ObjectString
+	value Value         // The value of the entry
 }
 
+// InitTable initializes the Table struct.
+//
+// No parameters.
+// No return values.
 func (table *Table) InitTable() {
 	table.capacity = 0
 	table.count = 0
 	table.entries = nil
 }
 
+// Freetable frees the table by releasing its entries and reinitializing it.
+//
+// No parameters.
+// No return types.
 func (table *Table) Freetable() {
 	FreeArray(table.entries, int(table.capacity))
 	table.InitTable()
 }
 
+// TableSet sets the value for a given key in the Table.
+//
+// Parameters:
+// - key: a pointer to an ObjectString representing the key.
+// - value: the value to be set.
+//
+// Returns:
+// - bool: true if the key is a new key in the table, false otherwise.
 func (table *Table) TableSet(key *ObjectString, value Value) bool {
-	if table.count+1 > table.capacity*TABLE_MAX_LOAD {
+	if table.count+1 > table.capacity*TableMaxLoad {
 		oldcap := table.capacity
 		capacity := GrowCapacity(int(table.capacity))
 		table.adjustTable(int(oldcap), capacity)
@@ -44,6 +64,9 @@ func (table *Table) TableSet(key *ObjectString, value Value) bool {
 	return isNewKey
 }
 
+// TableDelete deletes an entry from the Table.
+//
+// It takes a key of type *ObjectString as a parameter and returns a boolean value indicating whether the deletion was successful.
 func (table *Table) TableDelete(key *ObjectString) bool {
 	if table.count == 0 {
 		return false
@@ -58,15 +81,23 @@ func (table *Table) TableDelete(key *ObjectString) bool {
 	return true
 }
 
-func (to *Table) TableAddAll(from *Table) {
+// TableAddAll adds all elements from the given table to the current table.
+//
+// It takes a pointer to the Table struct named "from" as a parameter.
+// It does not return anything.
+func (table *Table) TableAddAll(from *Table) {
 	for i := 0; i < int(from.capacity); i++ {
 		entry := from.entries[i]
 		if entry.key != nil {
-			to.TableSet(entry.key, entry.value)
+			table.TableSet(entry.key, entry.value)
 		}
 	}
 }
 
+// TableGet retrieves the value associated with the given key in the Table.
+//
+// The function takes two parameters: key, a pointer to an ObjectString, and value, a pointer to a Value.
+// It returns a boolean value indicating whether the key was found in the Table.
 func (table Table) TableGet(key *ObjectString, value *Value) bool {
 	if table.count == 0 {
 		return false
@@ -80,9 +111,18 @@ func (table Table) TableGet(key *ObjectString, value *Value) bool {
 	return true
 }
 
+// findEntry finds the entry in the table with the given capacity and key.
+//
+// Parameters:
+// - capacity: the capacity of the table
+// - key: the key to search for
+//
+// Returns:
+// - entry: the entry found
+// - index: the index of the entry
 func (table *Table) findEntry(capacity int, key *ObjectString) (*Entry, uint32) {
 	index := key.Hash % uint32(capacity)
-	var tombstone *Entry = nil
+	var tombstone *Entry
 	for {
 		entry := table.entries[index]
 		if entry.key == nil {
@@ -91,11 +131,11 @@ func (table *Table) findEntry(capacity int, key *ObjectString) (*Entry, uint32) 
 					return tombstone, index
 				}
 				return &entry, index
-			} else {
-				if tombstone == nil {
-					tombstone = &entry
-				}
 			}
+			if tombstone == nil {
+				tombstone = &entry
+			}
+
 		} else if entry.key == key {
 			return &entry, index
 		}

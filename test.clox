@@ -1,7 +1,12 @@
-var ab = "cafe";
-print ab;
-var abebe = "Soulja76";
-var solo = 1 + 2;
-print abebe;
-var solo = 1 + 1;
-print solo;
+//var ab = "cafe";
+//print ab;
+//var abebe = "Soulja76";
+//var solo = 1 + 2;
+//print abebe;
+//var solo = 1 + 1;
+//print solo;
+{
+    var y = 200;
+    print y;
+}
+
