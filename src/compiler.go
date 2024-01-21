@@ -2,6 +2,7 @@ package src
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/smekuria1/goclox/globals"
@@ -269,9 +270,83 @@ func statement() {
 		beginScope()
 		block()
 		endScope()
+	} else if match(globals.TokenIF) {
+		ifStatement()
+	} else if match(globals.TokenWHILE) {
+		whileStatement()
 	} else {
 		expressionStatement()
 	}
+}
+
+// whileStatement is a function that processes the while loop
+func whileStatement() {
+	loopStart := currentChunk().Count
+	consume(globals.TokenLeftParen, "Expect '(' after 'while'")
+	expression()
+	consume(globals.TokenRightParen, "Expect ')' after condition")
+
+	exitJump := emitJump(uint8(globals.OpJumpFalse))
+
+	emitByte(uint8(globals.OpPop))
+	statement()
+
+	emitLoop(loopStart)
+
+	patchJump(exitJump)
+	emitByte(uint8(globals.OpPop))
+
+}
+
+// ifStatement is a function that processes an if statement.
+func ifStatement() {
+	consume(globals.TokenLeftParen, "Expect '(' after 'if'")
+	expression()
+	consume(globals.TokenRightParen, "Expect ')' after condition")
+
+	thenJump := emitJump(uint8(globals.OpJumpFalse))
+	emitByte(uint8(globals.OpPop))
+	statement()
+
+	elseJump := emitJump(uint8(globals.OpJump))
+	patchJump(thenJump)
+
+	emitByte(uint8(globals.OpPop))
+	if match(globals.TokenELSE) {
+		statement()
+	}
+	patchJump(elseJump)
+
+}
+
+func emitLoop(loopStart int) {
+	emitByte(uint8(globals.OpLoop))
+
+	offset := currentChunk().Count - loopStart + 2
+	if offset > math.MaxUint16 {
+		error("Loop body too large")
+	}
+	emitByte(uint8((offset >> 8) & 0xff))
+	emitByte(uint8(offset & 0xff))
+}
+
+// emitJump is a function that emits a jump instruction.
+func emitJump(opCode uint8) uint32 {
+	emitByte(opCode)
+	emitByte(0xff)
+	emitByte(0xff)
+	return uint32(currentChunk().Count - 2)
+}
+
+// patchJump is a function that patches a jump instruction.
+func patchJump(offset uint32) {
+	jump := currentChunk().Count - int(offset) - 2
+
+	if jump > math.MaxUint16 {
+		error("Too much code to jump over")
+	}
+	currentChunk().Code[offset] = uint8((jump >> 8) & 0xff)
+	currentChunk().Code[offset+1] = uint8(jump & 0xff)
 }
 
 // block is a function that processes a block of code.
@@ -572,6 +647,26 @@ func unary(canAssign bool) {
 	}
 }
 
+func and(canAssign bool) {
+	endJump := emitJump(uint8(globals.OpJumpFalse))
+	emitByte(uint8(globals.OpPop))
+
+	parsePrecendece(PrecAND)
+
+	patchJump(endJump)
+}
+
+func or(canAssign bool) {
+	elseJump := emitJump(uint8(globals.OpJumpFalse))
+	endJump := emitJump(uint8(globals.OpJump))
+
+	patchJump(elseJump)
+	emitByte(uint8(globals.OpPop))
+
+	parsePrecendece(PrecOR)
+	patchJump(endJump)
+}
+
 // parsePrecendece parses the precedence of a given Precedence.
 //
 // It advances the scanner source and retrieves the prefix rule for the
@@ -655,7 +750,7 @@ func consume(tokentype globals.TokenType, message string) {
 		return
 	}
 
-	errorAtCurrent(message)
+	error(message)
 }
 
 // emitByte writes a bytecode to the compiling chunk.
@@ -752,7 +847,7 @@ func init() {
 		globals.TokenIDENTIFIER:    {variable, nil, PrecNONE},
 		globals.TokenSTRING:        {stringy, nil, PrecNONE},
 		globals.TokenNUMBER:        {number, nil, PrecNONE},
-		globals.TokenAND:           {nil, nil, PrecNONE},
+		globals.TokenAND:           {nil, and, PrecNONE},
 		globals.TokenCLASS:         {nil, nil, PrecNONE},
 		globals.TokenELSE:          {nil, nil, PrecNONE},
 		globals.TokenFALSE:         {literal, nil, PrecNONE},
@@ -760,7 +855,7 @@ func init() {
 		globals.TokenFUN:           {nil, nil, PrecNONE},
 		globals.TokenIF:            {nil, nil, PrecNONE},
 		globals.TokenNIL:           {literal, nil, PrecNONE},
-		globals.TokenOR:            {nil, nil, PrecNONE},
+		globals.TokenOR:            {nil, or, PrecNONE},
 		globals.TokenPRINT:         {nil, nil, PrecNONE},
 		globals.TokenRETURN:        {nil, nil, PrecNONE},
 		globals.TokenSUPER:         {nil, nil, PrecNONE},

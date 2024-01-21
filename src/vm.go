@@ -2,7 +2,6 @@ package src
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/smekuria1/goclox/globals"
 )
@@ -12,13 +11,14 @@ const StackMax = 256
 
 // VM represents a virtual machine.
 type VM struct {
-	chunk    *Chunk          // Stores the bytecode of the program being executed.
-	ip       []uint8         // Keeps track of the current instruction pointer.
-	stack    [StackMax]Value // Stores the values of the virtual machine's stack.
-	stackTop int32           // Keeps track of the top of the stack.
-	objects  *Obj            // Stores a linked list of all dynamically allocated objects.
-	strings  *Table          // Stores a table of string objects.
-	globals  *Table          // Stores a table of global variables.
+	chunk          *Chunk  // Stores the bytecode of the program being executed.
+	ip             []uint8 // Keeps track of the current instruction pointer.
+	instructionPtr int
+	stack          [StackMax]Value // Stores the values of the virtual machine's stack.
+	stackTop       int32           // Keeps track of the top of the stack.
+	objects        *Obj            // Stores a linked list of all dynamically allocated objects.
+	strings        *Table          // Stores a table of string objects.
+	globals        *Table          // Stores a table of global variables.
 }
 
 // InterpretResult represents the result of an interpretation.
@@ -42,6 +42,7 @@ var vm VM
 // It resets the stack, clears the objects, and initializes the strings and globals tables.
 func InitVM() {
 	vm.ResetStack()
+	vm.instructionPtr = 0
 	vm.objects = nil
 	vm.strings = &Table{}
 	vm.globals = &Table{}
@@ -95,7 +96,7 @@ func (vm *VM) Pop() Value {
 // It does not take any parameters.
 // It returns a Value.
 func (vm *VM) Peek() Value {
-	if vm.stackTop == 1 {
+	if vm.stackTop != 0 {
 		return vm.stack[vm.stackTop-1]
 	}
 	return vm.stack[vm.stackTop]
@@ -145,12 +146,14 @@ func (vm *VM) BinaryOp(op func(Value, Value) Value) {
 // Returns a uint8 value.
 func (vm *VM) ReadByteVM() uint8 {
 	// Dereference the slice pointer and take the address of the first element.
-	result := (*uint8)(unsafe.Pointer(&(vm.ip)[0]))
-
+	//result := (*uint8)(unsafe.Pointer(&(vm.ip)[0]))
+	result := vm.ip[vm.instructionPtr]
 	// Increment the slice pointer to point to the next element.
-	vm.ip = (vm.ip)[1:]
+	//vm.ip = (vm.ip)[1:]
 
-	return *result
+	vm.instructionPtr++
+
+	return result
 }
 
 // ReadConstant retrieves a constant value from the chunk's constant pool.
@@ -182,6 +185,23 @@ func (vm *VM) runtimeError(offset int, runoffset int, message ...string) {
 	}
 
 	vm.ResetStack()
+}
+
+// ReadShort reads a 16-bit value from the VM's instruction stream.
+// func (vm *VM) ReadShort() uint16 {
+// 	value := uint16(vm.ip[0])<<8 | uint16(vm.ip[1])
+// 	vm.ip = vm.ip[2:]
+// 	return value
+// }
+
+func (vm *VM) ReadShort() uint16 {
+	// Dereference the slice pointer and take the value at the current instruction pointer.
+	value := uint16(vm.ip[vm.instructionPtr])<<8 | uint16(vm.ip[vm.instructionPtr+1])
+
+	// Increment the instruction pointer to point to the next two elements.
+	vm.instructionPtr += 2
+
+	return value
 }
 
 /*
@@ -267,9 +287,11 @@ func (vm *VM) run() InterpretResult {
 			vm.Pop()
 
 		case uint8(globals.OpGetLocal):
+			runoffset += 2
 			slot := vm.ReadByteVM()
 			vm.Push(vm.stack[slot])
 		case uint8(globals.OpSetLocal):
+			runoffset += 2
 			slot := vm.ReadByteVM()
 			vm.stack[slot] = vm.Peek()
 		case uint8(globals.OpReturn):
@@ -279,6 +301,19 @@ func (vm *VM) run() InterpretResult {
 			// 	fmt.Print("\n")
 			runoffset++
 			return InterpretOk
+		case uint8(globals.OpJumpFalse):
+			runoffset += 3
+			offsetJumpFalse := vm.ReadShort()
+			if isFalsey(vm.Peek()) {
+				vm.instructionPtr += int(offsetJumpFalse)
+			}
+		case uint8(globals.OpJump):
+			runoffset += 3
+			offsetJump := vm.ReadShort()
+			vm.instructionPtr += int(offsetJump)
+		case uint8(globals.OpLoop):
+			offsetLoop := int(vm.ReadShort())
+			vm.instructionPtr -= int(offsetLoop)
 		case uint8(globals.OpGreater):
 			runoffset++
 			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })

@@ -41,7 +41,7 @@ func FreeChunk(chunk *Chunk) {
 // - bytecode: The bytecode to be written to the chunk.
 // - line: The line number where the bytecode is written.
 func WriteChunk(chunk *Chunk, bytecode uint8, line int) {
-	if chunk.Capacity < chunk.Count+1 {
+	if chunk.Capacity <= chunk.Count+1 {
 		oldcapacity := chunk.Capacity
 		chunk.Capacity = GrowCapacity(oldcapacity)
 		chunk.Code = GrowArrayChunks(chunk.Code, oldcapacity, chunk.Capacity)

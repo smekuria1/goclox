@@ -1,12 +1,7 @@
-//var ab = "cafe";
-//print ab;
-//var abebe = "Soulja76";
-//var solo = 1 + 2;
-//print abebe;
-//var solo = 1 + 1;
-//print solo;
-{
-    var y = 200;
-    print y;
+var x = 10000;
+if (x > 100) {
+   while (x > 100) {
+    print x;
+    x = x - 1;
+   }
 }
-

@@ -15,6 +15,9 @@ const (
 	OpNil
 	OpTrue
 	OpFalse
+	OpJumpFalse
+	OpJump
+	OpLoop
 	OpEqual
 	OpGreater
 	OpLess
