@@ -1,7 +1,12 @@
-var x = 10000;
-if (x > 100) {
-   while (x > 100) {
+print "Starting outer loop";
+for (var x = 0; x < 10; x= x+1) {
+    var y = 100;
+    print "Starting Inner Loop";
+    print "------------";
+    while (y > 0) {
+        y = y - 10;
+        print y;
+    }
     print x;
-    x = x - 1;
-   }
 }
+

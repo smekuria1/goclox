@@ -18,7 +18,7 @@ type Parser struct {
 	// Previous represents the previously processed token.
 	Previous Token
 
-	// HadError indicates whether an error occurred during parsing.
+	// HadError indicates whether an Error occurred during parsing.
 	HadError bool
 
 	// PanicMode indicates whether the parser is in panic mode.
@@ -181,7 +181,7 @@ func parseVariable(errorMessage string) uint8 {
 // It then assigns the value of the previous parser to the 'name' variable.
 // The function iterates over the local variables in reverse order, checking
 // if there is already a variable with the same name in the current scope.
-// If there is, it raises an error. Otherwise, it adds the 'name' to the
+// If there is, it raises an Error. Otherwise, it adds the 'name' to the
 // list of local variables.
 func declareVariable() {
 	if current.scopeDepth == 0 {
@@ -194,7 +194,7 @@ func declareVariable() {
 			break
 		}
 		if identfierEqual(name, &local.name) {
-			error("Already variable with this name in this scope")
+			Error("Already variable with this name in this scope")
 		}
 	}
 	addLocal(name)
@@ -227,7 +227,7 @@ func identfierEqual(a, b *Token) bool {
 // Returns: None.
 func addLocal(name *Token) {
 	if current.localCount == Uint8Count {
-		error("Too many local variables in function")
+		Error("Too many local variables in function")
 		return
 	}
 
@@ -272,11 +272,58 @@ func statement() {
 		endScope()
 	} else if match(globals.TokenIF) {
 		ifStatement()
+	} else if match(globals.TokenFOR) {
+		forStatement()
 	} else if match(globals.TokenWHILE) {
 		whileStatement()
 	} else {
 		expressionStatement()
 	}
+}
+
+// forStatement is a function that processes the for loop
+func forStatement() {
+	beginScope()
+	consume(globals.TokenLeftParen, "Expect '(' after 'for'.")
+	if match(globals.TokenSEMICOLON) {
+		//No initialier
+	} else if match(globals.TokenVAR) {
+		varDeclaration()
+	} else {
+		expressionStatement()
+	}
+
+	loopStart := currentChunk().Count
+	exitJump := -1
+	if !match(globals.TokenSEMICOLON) {
+		expression()
+		consume(globals.TokenSEMICOLON, "Expect ';' after loop condition")
+
+		// jump out of loop
+		exitJump = int(emitJump(uint8(globals.OpJumpFalse)))
+		emitByte(uint8(globals.OpPop))
+	}
+
+	if !match(globals.TokenRightParen) {
+		bodyJump := emitJump(uint8(globals.OpJump))
+
+		incrementStart := currentChunk().Count
+		expression()
+		emitByte(uint8(globals.OpPop))
+		consume(globals.TokenRightParen, "Expect ')' after for clauses.")
+
+		emitLoop(loopStart)
+		loopStart = incrementStart
+		patchJump(bodyJump)
+	}
+
+	statement()
+	emitLoop(loopStart)
+	if exitJump != -1 {
+		patchJump(uint32(exitJump))
+		emitByte(uint8(globals.OpPop))
+	}
+	endScope()
 }
 
 // whileStatement is a function that processes the while loop
@@ -324,7 +371,7 @@ func emitLoop(loopStart int) {
 
 	offset := currentChunk().Count - loopStart + 2
 	if offset > math.MaxUint16 {
-		error("Loop body too large")
+		Error("Loop body too large")
 	}
 	emitByte(uint8((offset >> 8) & 0xff))
 	emitByte(uint8(offset & 0xff))
@@ -343,7 +390,7 @@ func patchJump(offset uint32) {
 	jump := currentChunk().Count - int(offset) - 2
 
 	if jump > math.MaxUint16 {
-		error("Too much code to jump over")
+		Error("Too much code to jump over")
 	}
 	currentChunk().Code[offset] = uint8((jump >> 8) & 0xff)
 	currentChunk().Code[offset+1] = uint8(jump & 0xff)
@@ -556,7 +603,7 @@ func number(canAssign bool) {
 	source := *scanner.Source
 	value, err := strconv.ParseFloat(source[parser.Previous.Start:parser.Previous.Start+parser.Previous.Length], 64)
 	if err != nil {
-		error(err.Error())
+		Error(err.Error())
 	}
 	emitConstant(NumberValue(value))
 
@@ -670,7 +717,7 @@ func or(canAssign bool) {
 // parsePrecendece parses the precedence of a given Precedence.
 //
 // It advances the scanner source and retrieves the prefix rule for the
-// previous token type. If the prefix rule is nil, it throws an error and
+// previous token type. If the prefix rule is nil, it throws an Error and
 // returns. It determines if the precedence is less than or equal to
 // PrecASSIGNMENT and assigns the result to canAssign. It then calls the
 // prefix rule with the canAssign parameter.
@@ -681,14 +728,14 @@ func or(canAssign bool) {
 // the infix rule with the canAssign parameter.
 //
 // After the loop, it checks if canAssign is true and if the current token
-// type matches TokenEQUAL. If true, it throws an error for invalid
+// type matches TokenEQUAL. If true, it throws an Error for invalid
 // assignment target.
 func parsePrecendece(precedence Precedence) {
 
 	advance(*scanner.Source)
 	prefixRule := getRule(parser.Previous.TOKENType).Prefix
 	if prefixRule == nil {
-		error("Expect expression")
+		Error("Expect expression")
 		return
 	}
 	canAssign := precedence <= PrecASSIGNMENT
@@ -702,7 +749,7 @@ func parsePrecendece(precedence Precedence) {
 	}
 
 	if canAssign && match(globals.TokenEQUAL) {
-		error("Invalid assignment target")
+		Error("Invalid assignment target")
 	}
 }
 
@@ -721,7 +768,7 @@ func emitConstant(value Value) {
 func makeConstant(value Value) uint8 {
 	constant := AddConstants(currentChunk(), value)
 	if constant > StackMax {
-		error("Too many constants in one chunk")
+		Error("Too many constants in one chunk")
 		return 0
 	}
 	return uint8(constant)
@@ -740,7 +787,7 @@ func emityBytes(bytecode1, bytecode2 uint8) {
 //
 // Parameters:
 // - tokentype: the type of token to consume.
-// - message: the error message to display if the token type does not match.
+// - message: the Error message to display if the token type does not match.
 //
 // Return type: None.
 func consume(tokentype globals.TokenType, message string) {
@@ -750,7 +797,7 @@ func consume(tokentype globals.TokenType, message string) {
 		return
 	}
 
-	error(message)
+	Error(message)
 }
 
 // emitByte writes a bytecode to the compiling chunk.
@@ -783,20 +830,20 @@ func advance(source string) {
 // errorAtCurrent is a function that takes a message as a parameter and calls the errorAt function with the parser.Current variable and the message. It does not return any value.
 //
 // Parameters:
-// - message: a string representing the error message.
+// - message: a string representing the Error message.
 func errorAtCurrent(message string) {
 	errorAt(&parser.Current, message)
 }
 
-// error is a function that handles errors and logs them.
+// Error is a function that handles errors and logs them.
 //
 // It takes a message string as a parameter and calls the errorAt function
-// passing the address of the parser.Previous variable and the error message.
-func error(message string) {
+// passing the address of the parser.Previous variable and the Error message.
+func Error(message string) {
 	errorAt(&parser.Previous, message)
 }
 
-// errorAt prints an error message and sets the parser in panic mode.
+// errorAt prints an Error message and sets the parser in panic mode.
 //
 // It takes a token pointer and a message string as parameters.
 // It does not return anything.

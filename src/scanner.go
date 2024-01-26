@@ -114,7 +114,7 @@ func (scanner *Scanner) ScanToken(source *string) Token {
 	case '"':
 		return scanner.checkString()
 	default:
-		// Handle other cases or return an error token
+		// Handle other cases or return an Error token
 		return makeErrorToken("Unexpected character.", scanner)
 	}
 
@@ -162,6 +162,12 @@ func (scanner *Scanner) identifierType() globals.TokenType {
 		return scanner.checkKeyword(1, 2, "ar", globals.TokenVAR)
 	case 'w':
 		return scanner.checkKeyword(1, 4, "hile", globals.TokenWHILE)
+	case 'f':
+		firstCheck := scanner.checkKeyword(1, 4, "alse", globals.TokenFALSE)
+		if firstCheck == globals.TokenIDENTIFIER {
+			firstCheck = scanner.checkKeyword(1, 2, "or", globals.TokenFOR)
+		}
+		return firstCheck
 	default:
 		return globals.TokenIDENTIFIER
 
@@ -231,7 +237,7 @@ func (scanner *Scanner) number() Token {
 //
 // It scans the input until it finds a closing double quote (") or reaches the end of the input.
 // It increments the line count if a newline character is encountered.
-// If the input ends without finding a closing double quote, it returns an error token.
+// If the input ends without finding a closing double quote, it returns an Error token.
 // Otherwise, it creates a token of type TokenSTRING and returns it.
 func (scanner *Scanner) checkString() Token {
 	for scanner.peek() != '"' && !scanner.isAtEnd() {
@@ -357,16 +363,16 @@ func makeToken(tokentype globals.TokenType, scanner *Scanner) Token {
 	return token
 }
 
-// makeErrorToken creates an error token with the given message and scanner.
+// makeErrorToken creates an Error token with the given message and scanner.
 //
 // Parameters:
 //
-// - message: the error message for the token.
+// - message: the Error message for the token.
 //
 // - scanner: the scanner used to create the token.
 //
 // Return:
-// - Token: the error token.
+// - Token: the Error token.
 func makeErrorToken(message string, scanner *Scanner) Token {
 	var token Token
 	token.TOKENType = globals.TokenERROR

@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := build-win
 BIN_FILE=goclox.exe
 
 MODULE   = $(shell $(GO) list -m)

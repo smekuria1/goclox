@@ -1,6 +1,7 @@
 package src
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smekuria1/goclox/globals"
@@ -19,6 +20,7 @@ type VM struct {
 	objects        *Obj            // Stores a linked list of all dynamically allocated objects.
 	strings        *Table          // Stores a table of string objects.
 	globals        *Table          // Stores a table of global variables.
+
 }
 
 // InterpretResult represents the result of an interpretation.
@@ -28,10 +30,10 @@ const (
 	// InterpretOk indicates successful interpretation
 	InterpretOk InterpretResult = iota
 
-	// InterpretCompileError indicates a compilation error during interpretation
+	// InterpretCompileError indicates a compilation Error during interpretation
 	InterpretCompileError
 
-	// InterpretRuntimeError indicates a runtime error during interpretation
+	// InterpretRuntimeError indicates a runtime Error during interpretation
 	InterpretRuntimeError
 )
 
@@ -133,11 +135,15 @@ func Interpret(source string) InterpretResult {
 // Parameters:
 // - op: The operation function that takes two values and returns a value.
 //
-// Return type: None.
-func (vm *VM) BinaryOp(op func(Value, Value) Value) {
+// Return type: error
+func (vm *VM) BinaryOp(op func(Value, Value) Value, offset ...int) error {
 	b := vm.Pop()
 	a := vm.Pop()
+	if a.Type != ValNumber || b.Type != ValNumber {
+		return errors.New("cannot compare non numeric")
+	}
 	vm.Push(op(a, b))
+	return nil
 }
 
 // ReadByteVM reads a single byte from the VM's instruction pointer.
@@ -205,7 +211,7 @@ func (vm *VM) ReadShort() uint16 {
 }
 
 /*
-run executes the bytecode in the VM's chunk until an error occurs or the program completes.
+run executes the bytecode in the VM's chunk until an Error occurs or the program completes.
 During execution, the function interprets each bytecode instruction, performing the
 corresponding operations such as pushing constants onto the stack, performing binary
 operations, and handling control flow instructions. If debugging is enabled, it prints
@@ -215,7 +221,7 @@ Parameters:
 - vm: A pointer to the Virtual Machine executing the bytecode.
 
 Returns:
-- InterpretResult: Indicates the result of the interpretation, such as success, error, or runtime error.
+- InterpretResult: Indicates the result of the interpretation, such as success, Error, or runtime Error.
 */
 func (vm *VM) run() InterpretResult {
 	offset := 0
@@ -316,7 +322,11 @@ func (vm *VM) run() InterpretResult {
 			vm.instructionPtr -= int(offsetLoop)
 		case uint8(globals.OpGreater):
 			runoffset++
-			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })
+			err := vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })
+			if err != nil {
+				vm.runtimeError(offset, runoffset, err.Error())
+				return InterpretRuntimeError
+			}
 		case uint8(globals.OpLess):
 			runoffset++
 			vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) < v2.As.(float64)) })
