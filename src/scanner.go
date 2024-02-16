@@ -163,11 +163,21 @@ func (scanner *Scanner) identifierType() globals.TokenType {
 	case 'w':
 		return scanner.checkKeyword(1, 4, "hile", globals.TokenWHILE)
 	case 'f':
-		firstCheck := scanner.checkKeyword(1, 4, "alse", globals.TokenFALSE)
-		if firstCheck == globals.TokenIDENTIFIER {
-			firstCheck = scanner.checkKeyword(1, 2, "or", globals.TokenFOR)
+		// firstCheck := scanner.checkKeyword(1, 4, "alse", globals.TokenFALSE)
+		// if firstCheck == globals.TokenIDENTIFIER {
+		// 	firstCheck = scanner.checkKeyword(1, 2, "or", globals.TokenFOR)
+		// }
+		// return firstCheck
+		switch source[scanner.Start+1] {
+		case 'a':
+			return scanner.checkKeyword(2, 3, "lse", globals.TokenFALSE)
+		case 'o':
+			return scanner.checkKeyword(2, 1, "r", globals.TokenFOR)
+		case 'u':
+			return scanner.checkKeyword(2, 1, "n", globals.TokenFUN)
+		default:
+			return globals.TokenIDENTIFIER
 		}
-		return firstCheck
 	default:
 		return globals.TokenIDENTIFIER
 

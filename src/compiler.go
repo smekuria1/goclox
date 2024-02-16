@@ -58,11 +58,23 @@ type ParseRule struct {
 	Precedence Precedence
 }
 
+// FunctionType represents the type of a function.
+type FunctionType int
+
+const (
+	// FunctionTypeNative represents a native function.
+	TypeFunction FunctionType = iota
+	TypeScript
+)
+
 // Compiler represents a compiler object.
 type Compiler struct {
 	locals     [Uint8Count]Local // An array of `Local` objects with a length of `Uint8Count`.
 	localCount int               // Keeps track of the number of local variables.
 	scopeDepth int               // Represents the depth of the current scope.
+	function   *ObjFunction      // Represents the current function being compiled.
+	funcType   FunctionType      // Represents the type of the current function being compiled.
+	encolsing  *Compiler         // Represents the compiler that encloses the current compiler.
 }
 
 // Local represents a local variable in the compiler.
@@ -75,38 +87,43 @@ type Local struct {
 type Parsefn func(canAssign bool)
 
 var parser Parser
-var compilingChunk *Chunk
+
+// var compilingChunk *Chunk
 var current *Compiler = nil
 
 // InitCompiler initializes the compiler.
 //
 // It takes a pointer to a Compiler struct as a parameter.
-func InitCompiler(compiler *Compiler) {
+func InitCompiler(compiler *Compiler, _type FunctionType) {
+	compiler.encolsing = current
+	compiler.function = nil
+	compiler.funcType = _type
 	compiler.localCount = 0
 	compiler.scopeDepth = 0
+	compiler.function = NewFunction()
 	current = compiler
+	if _type != TypeScript {
+		current.function.name = copyString(parser.Previous.Start, parser.Previous.Length, ObjStringType)
+	}
+	local := &current.locals[current.localCount]
+	local.depth = 0
+	local.name.Start = 0
+	local.name.Length = 0
 }
 
 func currentChunk() *Chunk {
-	return compilingChunk
+	return &current.function.chunk
 }
 
-// Compile compiles the given source code into a chunk.
+// Compile compiles the source code into an ObjFunction.
 //
-// Parameters:
-//
-//	source - the source code to be compiled (string)
-//	chunk  - the chunk to store the compiled code (pointer to Chunk)
-//
-// Returns:
-//
-//	bool - indicating whether the compilation was successful or not
-func Compile(source string, chunk *Chunk) bool {
+// It takes a source string and a pointer to a Chunk as parameters and returns a pointer to an ObjFunction.
+func Compile(source string, chunk *Chunk) *ObjFunction {
 
 	scanner.InitScanner(source)
 	var compiler Compiler
-	InitCompiler(&compiler)
-	compilingChunk = chunk
+	InitCompiler(&compiler, TypeScript)
+	// compilingChunk = chunk
 	parser.HadError = false
 	parser.PanicMode = false
 	advance(*scanner.Source)
@@ -118,8 +135,12 @@ func Compile(source string, chunk *Chunk) bool {
 	for !match(globals.TokenEOF) {
 		declaration()
 	}
-	endCompiler()
-	return !parser.HadError
+	function := endCompiler()
+
+	if parser.HadError {
+		return nil
+	}
+	return function
 
 }
 
@@ -135,7 +156,9 @@ func expression() {
 //
 // It does not take any parameters and does not return any values.
 func declaration() {
-	if match(globals.TokenVAR) {
+	if match(globals.TokenFUN) {
+		functionDeclaration()
+	} else if match(globals.TokenVAR) {
 		varDeclaration()
 	} else {
 		statement()
@@ -143,6 +166,48 @@ func declaration() {
 	if parser.PanicMode {
 		synchronize()
 	}
+}
+
+func functionDeclaration() {
+	global := parseVariable("Expect function name.")
+	markInitialized()
+	function(TypeFunction)
+	defineVariable(global)
+}
+
+func markInitialized() {
+	if current.scopeDepth == 0 {
+		return
+	}
+	current.locals[current.localCount-1].depth = current.scopeDepth
+}
+
+func function(_type FunctionType) {
+	var compiler Compiler
+	InitCompiler(&compiler, _type)
+	beginScope()
+
+	consume(globals.TokenLeftParen, "Expect '(' after function name.")
+	if !check(globals.TokenRightParen) {
+		for {
+			current.function.arity++
+			if current.function.arity > 255 {
+				errorAtCurrent("Can't have more than 255 parameters.")
+			}
+			paramConstant := parseVariable("Expect parameter name.")
+			defineVariable(paramConstant)
+			if !match(globals.TokenCOMMA) {
+				break
+			}
+		}
+	}
+	consume(globals.TokenRightParen, "Expect ')' after parameters.")
+
+	consume(globals.TokenLeftBrace, "Expect '{' before function body.")
+	block()
+
+	function := endCompiler()
+	emityBytes(uint8(globals.OpConstant), makeConstant(ObjVal(function)))
 }
 
 // varDeclaration is a function that performs variable declaration.
@@ -244,7 +309,7 @@ func addLocal(name *Token) {
 // Returns:
 // - uint8: the generated constant identifier.
 func identifierConstant(name *Token) uint8 {
-	return makeConstant(ObjStrValue(copyString(name.Start, name.Length, *scanner.Source, ObjStringType)))
+	return makeConstant(ObjStrValue(copyString(name.Start, name.Length, ObjStringType)))
 }
 
 // defineVariable defines a global variable.
@@ -253,6 +318,7 @@ func identifierConstant(name *Token) uint8 {
 // It does not return any values.
 func defineVariable(global uint8) {
 	if current.scopeDepth > 0 {
+		markInitialized()
 		return
 	}
 	emityBytes(uint8(globals.OpDefineGlobal), global)
@@ -508,13 +574,20 @@ func synchronize() {
 //
 // This function does not take any parameters.
 // It does not return any values.
-func endCompiler() {
+func endCompiler() *ObjFunction {
+	emitReturn()
+	function := current.function
 	if globals.DEBUG_PRINT_CODE {
 		if !parser.HadError {
-			DisassembleChunk(currentChunk(), "code")
+			if function.name != nil {
+				DisassembleChunk(currentChunk(), string(function.name.Chars))
+			} else {
+				DisassembleChunk(currentChunk(), "script")
+			}
 		}
 	}
-	emitReturn()
+	current = current.encolsing
+	return function
 
 }
 
@@ -524,6 +597,31 @@ func endCompiler() {
 func getRule(tokentype globals.TokenType) *ParseRule {
 	parserule := rules[tokentype]
 	return &parserule
+}
+
+func call(canAssign bool) {
+	argcount := argumentList()
+	emityBytes(uint8(globals.OpCall), argcount)
+}
+
+func argumentList() uint8 {
+	argcount := uint8(0)
+	if !check(globals.TokenRightParen) {
+		for {
+			expression()
+			argcount++
+			if argcount == 255 {
+				errorAtCurrent("Can't have more than 255 arguments.")
+			}
+			if !match(globals.TokenCOMMA) {
+				break
+			}
+		}
+
+	}
+	consume(globals.TokenRightParen, "Expect ')' after arguments.")
+
+	return argcount
 }
 
 // binary represents a function that performs a binary operation based on the given operator type.
@@ -592,6 +690,7 @@ func grouping(canAssign bool) {
 // This function does not take any parameters.
 // It does not return anything.
 func emitReturn() {
+	emitByte(uint8(globals.OpNil))
 	emitByte(uint8(globals.OpReturn))
 }
 
@@ -614,8 +713,7 @@ func number(canAssign bool) {
 // It takes a boolean parameter canAssign which determines whether the generated string can be assigned or not.
 // The function does not return any value.
 func stringy(canAssign bool) {
-	source := *scanner.Source
-	emitConstant(ObjStrValue(copyString(parser.Previous.Start+1, parser.Previous.Length-2, source, ObjStringType)))
+	emitConstant(ObjStrValue(copyString(parser.Previous.Start+1, parser.Previous.Length-2, ObjStringType)))
 }
 
 // variable is a Go function that takes a boolean parameter canAssign.
@@ -805,7 +903,7 @@ func consume(tokentype globals.TokenType, message string) {
 // bytecode: the bytecode to be written.
 // Returns: nothing.
 func emitByte(bytecode uint8) {
-	WriteChunk(compilingChunk, bytecode, parser.Previous.Line)
+	WriteChunk(currentChunk(), bytecode, parser.Previous.Line)
 }
 
 // advance advances the parser to the next token in the source string.
@@ -872,7 +970,7 @@ func errorAt(token *Token, message string) {
 // No return type.
 func init() {
 	rules = map[globals.TokenType]ParseRule{
-		globals.TokenLeftParen:     {grouping, nil, PrecNONE},
+		globals.TokenLeftParen:     {grouping, call, PrecNONE},
 		globals.TokenRightParen:    {nil, nil, PrecNONE},
 		globals.TokenLeftBrace:     {nil, nil, PrecNONE},
 		globals.TokenRightBrace:    {nil, nil, PrecNONE},

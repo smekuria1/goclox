@@ -12,6 +12,7 @@ const (
 	ValBool ValueType = iota
 	ValNil
 	ValObjStr
+	ValObj
 	ValNumber
 )
 
@@ -39,6 +40,21 @@ func BoolValue(value bool) Value {
 // Returns: a Value.
 func ObjStrValue(value *ObjectString) Value {
 	return Value{Type: ValObjStr, As: value}
+}
+
+// ObjFunctionValue returns the value of the ObjFunction.
+//
+// value *ObjFunction - the ObjFunction parameter
+// Value - the return type
+func ObjFunctionValue(value *ObjFunction) Value {
+	return Value{Type: ValObj, As: value}
+}
+
+// OBJ_VAL description of the Go function.
+//
+// It takes a parameter object of type *Obj and returns a Value type.
+func ObjVal(object *ObjFunction) Value {
+	return Value{Type: ValueType(ValObj), As: object}
 }
 
 // NilValue returns a Value with Type ValNil and a nil As field.
@@ -103,12 +119,12 @@ func IsNil(value Value) bool {
 	return value.Type == ValNil
 }
 
-// IsValObj checks if the given value is of type ValObjStr.
+// IsValObj checks if the given value is of type ValObj
 //
 // value: the value to be checked.
 // Returns: true if the value is of type ValObjStr, false otherwise.
 func IsValObj(value Value) bool {
-	return value.Type == ValObjStr
+	return value.Type == ValObj
 }
 
 // IsNumber checks if the given value is of type number.
@@ -166,6 +182,8 @@ func PrintValue(value Value) {
 		fmt.Print(AsNumber(value))
 	case ValObjStr:
 		printObjectStr(value)
+	case ValObj:
+		printFunction(AsFunction(value))
 	}
 }
 
@@ -174,9 +192,16 @@ func PrintValue(value Value) {
 // It takes a Value object as a parameter.
 // It does not return anything.
 func printObjectStr(object Value) {
-	switch object.As.(*ObjectString).Obj.Type {
-	case ObjStringType:
-		fmt.Printf("%s", AsCString(object))
+	fmt.Printf("%s", AsCString(object))
+}
+
+// printFunction prints the function object.
+func printFunction(function *ObjFunction) {
+
+	if function.name == nil {
+		fmt.Printf("<script>")
+	} else {
+		fmt.Printf("%s", string(function.name.Chars))
 	}
 }
 

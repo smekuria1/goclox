@@ -1,12 +1,12 @@
-print "Starting outer loop";
-for (var x = 0; x < 10; x= x+1) {
-    var y = 100;
-    print "Starting Inner Loop";
-    print "------------";
-    while (y > 0) {
-        y = y - 10;
-        print y;
-    }
-    print x;
+var x = 100;
+while ( x > 0){
+   x = x - 1;
+   print x;
 }
+
+fun test(x) {
+   print "hello";
+}
+
+test;
 

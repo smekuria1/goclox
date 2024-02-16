@@ -26,4 +26,5 @@
 go.work
 
 .vscode
+bin
 .VSCodeCounter

@@ -18,6 +18,7 @@ const (
 	OpJumpFalse
 	OpJump
 	OpLoop
+	OpCall
 	OpEqual
 	OpGreater
 	OpLess

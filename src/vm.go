@@ -3,6 +3,7 @@ package src
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/smekuria1/goclox/globals"
 )
@@ -10,16 +11,21 @@ import (
 // StackMax represents the maximum size of the stack.
 const StackMax = 256
 
+// FrameMax represents the maximum number of call frames.
+const FrameMax = 64
+
 // VM represents a virtual machine.
 type VM struct {
-	chunk          *Chunk  // Stores the bytecode of the program being executed.
-	ip             []uint8 // Keeps track of the current instruction pointer.
-	instructionPtr int
-	stack          [StackMax]Value // Stores the values of the virtual machine's stack.
-	stackTop       int32           // Keeps track of the top of the stack.
-	objects        *Obj            // Stores a linked list of all dynamically allocated objects.
-	strings        *Table          // Stores a table of string objects.
-	globals        *Table          // Stores a table of global variables.
+	chunk *Chunk // Stores the bytecode of the program being executed.
+	//ip             []uint8 // Keeps track of the current instruction pointer.
+	//instructionPtr int
+	frame      [FrameMax]CallFrame // Stores the call frames of the virtual machine.
+	frameCount int                 // Keeps track of the number of call frames.
+	stack      []Value             // Stores the values of the virtual machine's stack.
+	stackTop   int                 // Keeps track of the top of the stack.
+	objects    *Obj                // Stores a linked list of all dynamically allocated objects.
+	strings    *Table              // Stores a table of string objects.
+	globals    *Table              // Stores a table of global variables.
 
 }
 
@@ -37,6 +43,14 @@ const (
 	InterpretRuntimeError
 )
 
+type CallFrame struct {
+	function *ObjFunction // Stores the function object of the function being called.
+	slots    []Value      // Stores the slots of the call frame.
+	// slotTop  int          // Keeps track of the top of the slots.
+	fp    []uint8 // Stores the frame pointers of the call frame.
+	fpPtr int     //  tracks the current frame pointer
+}
+
 var vm VM
 
 // InitVM initializes the virtual machine.
@@ -44,10 +58,11 @@ var vm VM
 // It resets the stack, clears the objects, and initializes the strings and globals tables.
 func InitVM() {
 	vm.ResetStack()
-	vm.instructionPtr = 0
+	// vm.instructionPtr = 0
 	vm.objects = nil
 	vm.strings = &Table{}
 	vm.globals = &Table{}
+	vm.stack = make([]Value, StackMax)
 	vm.globals.InitTable()
 	vm.strings.InitTable()
 }
@@ -58,6 +73,7 @@ func InitVM() {
 // No return type.
 func (vm *VM) ResetStack() {
 	vm.stackTop = 0
+	vm.frameCount = 0
 }
 
 // FreeVM frees the virtual machine by calling the Freetable method on the vm.strings and vm.globals variables,
@@ -97,7 +113,7 @@ func (vm *VM) Pop() Value {
 //
 // It does not take any parameters.
 // It returns a Value.
-func (vm *VM) Peek() Value {
+func (vm *VM) Peek(index ...int) Value {
 	if vm.stackTop != 0 {
 		return vm.stack[vm.stackTop-1]
 	}
@@ -114,15 +130,13 @@ func (vm *VM) Peek() Value {
 func Interpret(source string) InterpretResult {
 	var chunk Chunk
 	InitChunk(&chunk)
-
-	if !Compile(source, &chunk) {
+	function := Compile(source, &chunk)
+	if function == nil {
 		FreeChunk(&chunk)
 		return InterpretCompileError
 	}
-
-	vm.chunk = &chunk
-	vm.ip = vm.chunk.Code
-
+	vm.Push(ObjVal(function))
+	callValue(ObjVal(function), 0)
 	result := vm.run()
 	FreeChunk(&chunk)
 	return result
@@ -150,14 +164,14 @@ func (vm *VM) BinaryOp(op func(Value, Value) Value, offset ...int) error {
 //
 // No parameters.
 // Returns a uint8 value.
-func (vm *VM) ReadByteVM() uint8 {
+func (frame *CallFrame) ReadByteVM() uint8 {
 	// Dereference the slice pointer and take the address of the first element.
 	//result := (*uint8)(unsafe.Pointer(&(vm.ip)[0]))
-	result := vm.ip[vm.instructionPtr]
+	result := frame.fp[frame.fpPtr]
 	// Increment the slice pointer to point to the next element.
 	//vm.ip = (vm.ip)[1:]
 
-	vm.instructionPtr++
+	frame.fpPtr++
 
 	return result
 }
@@ -170,8 +184,8 @@ func (vm *VM) ReadByteVM() uint8 {
 // field of the `chunk` field of the `VM` struct.
 //
 // Returns the constant value retrieved from the constant pool.
-func (vm *VM) ReadConstant() Value {
-	result := vm.chunk.Constants.Values[vm.ReadByteVM()]
+func (frame *CallFrame) ReadConstant() Value {
+	result := frame.function.chunk.Constants.Values[frame.ReadByteVM()]
 	return result
 }
 
@@ -181,33 +195,68 @@ func (vm *VM) ReadConstant() Value {
 // It does not return anything.
 func (vm *VM) runtimeError(offset int, runoffset int, message ...string) {
 
-	if !globals.DEBUG_TRACE_EXECUTION {
-		offset = runoffset
-	}
-	line := vm.chunk.Lines[offset]
-	fmt.Printf("%s line[%d]\n", message[0], line)
-	if len(message) > 1 {
-		fmt.Printf("%s", message[1])
+	// frame := &vm.frame[vm.frameCount-1]
+	// instruction := frame.fp[frame.fpPtr]
+	// line := frame.function.chunk.Lines[int(instruction)]
+	// fmt.Printf("%s line[%d]\n", message[0], line)
+	// if len(message) > 1 {
+	// 	fmt.Printf("%s", message[1])
+	// }
+	for i := vm.frameCount - 1; i >= 0; i-- {
+		frame := &vm.frame[i]
+		function := frame.function
+		instruction := frame.fp[frame.fpPtr]
+
+		fmt.Printf("[line %d] in %s\n", function.chunk.Lines[int(instruction)], string(function.name.Chars))
+		if function.name == nil {
+			fmt.Printf("script\n")
+		} else {
+			fmt.Printf("function %s\n", string(function.name.Chars))
+		}
 	}
 
 	vm.ResetStack()
 }
 
 // ReadShort reads a 16-bit value from the VM's instruction stream.
-// func (vm *VM) ReadShort() uint16 {
-// 	value := uint16(vm.ip[0])<<8 | uint16(vm.ip[1])
-// 	vm.ip = vm.ip[2:]
-// 	return value
-// }
+func (frame *CallFrame) ReadShort() uint16 {
+	value := uint16(frame.fp[frame.fpPtr])<<8 | uint16(frame.fp[frame.fpPtr+1])
 
-func (vm *VM) ReadShort() uint16 {
-	// Dereference the slice pointer and take the value at the current instruction pointer.
-	value := uint16(vm.ip[vm.instructionPtr])<<8 | uint16(vm.ip[vm.instructionPtr+1])
-
-	// Increment the instruction pointer to point to the next two elements.
-	vm.instructionPtr += 2
+	frame.fpPtr += 2
 
 	return value
+}
+
+func callValue(calle Value, argcount int) bool {
+	if IsValObj(calle) {
+		switch AsFunction(calle).obj.Type {
+		case ObjFunctionType:
+			return fcall(AsFunction(calle), argcount)
+		default:
+			break
+		}
+	}
+	vm.runtimeError(0, 0, "Can only call functions and classes.")
+	return false
+}
+
+func fcall(function *ObjFunction, argcount int) bool {
+	if argcount != function.arity {
+		vm.runtimeError(0, 0, "Expected", strconv.Itoa(function.arity), "arguments but got", strconv.Itoa(argcount))
+		return false
+	}
+	if vm.frameCount == FrameMax {
+		vm.runtimeError(0, 0, "Stack overflow.")
+		return false
+	}
+
+	frame := &vm.frame[vm.frameCount]
+	frame.function = function
+	frame.fp = function.chunk.Code
+
+	frame.slots = vm.stack[vm.stackTop-argcount-1:]
+	vm.frameCount++
+	return true
 }
 
 /*
@@ -224,6 +273,9 @@ Returns:
 - InterpretResult: Indicates the result of the interpretation, such as success, Error, or runtime Error.
 */
 func (vm *VM) run() InterpretResult {
+
+	frame := &vm.frame[vm.frameCount-1]
+
 	offset := 0
 	runoffset := 0
 	for {
@@ -236,14 +288,14 @@ func (vm *VM) run() InterpretResult {
 
 			}
 			fmt.Print("\n")
-			offset = DisassembleInstruction(vm.chunk, offset)
+			offset = DisassembleInstruction(&frame.function.chunk, frame.fpPtr)
 		}
 
-		instruction := vm.ReadByteVM()
+		instruction := frame.ReadByteVM()
 		//fmt.Printf("instruction: %v\n", instruction)
 		switch instruction {
 		case uint8(globals.OpConstant):
-			constant := vm.ReadConstant()
+			constant := frame.ReadConstant()
 			vm.Push(constant)
 			runoffset += 2
 			//break
@@ -268,8 +320,14 @@ func (vm *VM) run() InterpretResult {
 		case uint8(globals.OpPop):
 			vm.Pop()
 			runoffset++
+		case uint8(globals.OpCall):
+			argcount := frame.ReadByteVM()
+			if !callValue(vm.Peek(int(argcount)), int(argcount)) {
+				return InterpretRuntimeError
+			}
+			runoffset += 1
 		case uint8(globals.OpGetGlobal):
-			name := readString()
+			name := frame.readString()
 			var value Value
 			runoffset += 2
 			if !vm.globals.TableGet(name, &value) {
@@ -279,7 +337,7 @@ func (vm *VM) run() InterpretResult {
 			vm.Push(value)
 		case uint8(globals.OpSetGlobal):
 			runoffset += 2
-			name := readString()
+			name := frame.readString()
 			if vm.globals.TableSet(name, vm.Peek()) {
 				vm.globals.TableDelete(name)
 				vm.runtimeError(offset, runoffset, "Undefined variable", string(name.Chars))
@@ -287,39 +345,42 @@ func (vm *VM) run() InterpretResult {
 			}
 		case uint8(globals.OpDefineGlobal):
 			runoffset += 2
-			name := readString()
+			name := frame.readString()
 			peeked := vm.Peek()
 			vm.globals.TableSet(name, peeked)
 			vm.Pop()
 
 		case uint8(globals.OpGetLocal):
 			runoffset += 2
-			slot := vm.ReadByteVM()
-			vm.Push(vm.stack[slot])
+			slot := frame.ReadByteVM()
+			vm.Push(frame.slots[slot])
 		case uint8(globals.OpSetLocal):
 			runoffset += 2
-			slot := vm.ReadByteVM()
-			vm.stack[slot] = vm.Peek()
+			slot := frame.ReadByteVM()
+			frame.slots[slot] = vm.Peek()
 		case uint8(globals.OpReturn):
-			// //TODO: Just for debugging remove when adding actual print functionality
-			// for i := 0; i < scanner.Line; i+=1 {
-			// 	PrintValue(vm.Pop())
-			// 	fmt.Print("\n")
-			runoffset++
-			return InterpretOk
+			result := vm.Pop()
+			vm.frameCount--
+			if vm.frameCount == 0 {
+				return InterpretOk
+			}
+			vm.stack = frame.slots
+			vm.Push(result)
+			frame = &vm.frame[vm.frameCount-1]
+			runoffset = 0
 		case uint8(globals.OpJumpFalse):
 			runoffset += 3
-			offsetJumpFalse := vm.ReadShort()
+			offsetJumpFalse := frame.ReadShort()
 			if isFalsey(vm.Peek()) {
-				vm.instructionPtr += int(offsetJumpFalse)
+				frame.fpPtr += int(offsetJumpFalse)
 			}
 		case uint8(globals.OpJump):
 			runoffset += 3
-			offsetJump := vm.ReadShort()
-			vm.instructionPtr += int(offsetJump)
+			offsetJump := frame.ReadShort()
+			frame.fpPtr += int(offsetJump)
 		case uint8(globals.OpLoop):
-			offsetLoop := int(vm.ReadShort())
-			vm.instructionPtr -= int(offsetLoop)
+			offsetLoop := int(frame.ReadShort())
+			frame.fpPtr -= int(offsetLoop)
 		case uint8(globals.OpGreater):
 			runoffset++
 			err := vm.BinaryOp(func(v1, v2 Value) Value { return BoolValue(v1.As.(float64) > v2.As.(float64)) })
@@ -385,6 +446,6 @@ func isFalsey(val Value) bool {
 //
 // No parameters.
 // Returns *ObjectString.
-func readString() *ObjectString {
-	return AsObjString(vm.ReadConstant())
+func (frame *CallFrame) readString() *ObjectString {
+	return AsObjString(frame.ReadConstant())
 }

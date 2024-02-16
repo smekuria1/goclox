@@ -1,173 +1,210 @@
 Running file test.clox
-== code ==
+     
 0000    1 OpConstant          0 'Starting outer loop'
+     [Starting outer loop]
 0002  | OpPrint
-0003    2 OpConstant          1 '0'
-0005  | OpGetLocal          0
-0007  | OpConstant          2 '10'
-0009  | OpLess
-0010  | OpJumpElse         10 -> 67
-0013  | OpPop
-0014  | OpJump             14 -> 28
-0017  | OpGetLocal          0
-0019  | OpConstant          3 '1'
-0021  | OpAdd
-0022  | OpSetLocal          0
-0024  | OpPop
-0025  | OpLoop             25 -> 5
-0028    3 OpConstant          4 '100'
-0030    4 OpConstant          5 'Starting Inner Loop'
-0032  | OpPrint
-0033    5 OpConstant          6 '------------'
-0035  | OpPrint
-0036    6 OpGetLocal          1
-0038  | OpConstant          7 '0'
-0040  | OpGreater
-0041  | OpJumpElse         41 -> 59
-0044  | OpPop
-0045    7 OpGetLocal          1
-0047  | OpConstant          8 '10'
-0049  | OpSubtract
-0050  | OpSetLocal          1
-0052  | OpPop
-0053    8 OpGetLocal          1
-0055  | OpPrint
-0056    9 OpLoop             56 -> 36
-0059  | OpPop
-0060   10 OpGetLocal          0
-0062  | OpPrint
-0063   11 OpPop
-0064  | OpLoop             64 -> 17
-0067  | OpPop
-0068  | OpPop
 Starting outer loop
+     
+0003    2 OpConstant          1 '0'
+     [0]
+0005  | OpGetLocal          0
+     [0][0]
+0007  | OpConstant          2 '10'
+     [0][0][10]
+0009  | OpLess
+     [0][true]
+0010  | OpJumpElse         10 -> 67
+     [0][true]
+0013  | OpPop
+     [0]
+0014  | OpJump             14 -> 28
+     [0]
+0017  | OpGetLocal          0
+     [0][100]
+0019  | OpConstant          3 '1'
+     [0][100][Starting Inner Loop]
+0021  | OpAdd
 Starting Inner Loop
+     [0][100]
+0022  | OpSetLocal          0
+     [0][100][------------]
+0024  | OpPop
 ------------
+     [0][100]
+0025  | OpLoop             25 -> 5
+     [0][100][100]
+0028    3 OpConstant          4 '100'
+     [0][100][100][0]
+0030    4 OpConstant          5 'Starting Inner Loop'
+     [0][100][true]
+0032  | OpPrint
+     [0][100][true]
+0033    5 OpConstant          6 '------------'
+     [0][100]
+0035  | OpPrint
+     [0][100][100]
+0036    6 OpGetLocal          1
+     [0][100][100][10]
+0038  | OpConstant          7 '0'
+     [0][100][90]
+0040  | OpGreater
+     [0][90][90]
+0041  | OpJumpElse         41 -> 59
+     [0][90]
+0044  | OpPop
+     [0][90][90]
+0045    7 OpGetLocal          1
 90
+     [0][90]
+0047  | OpConstant          8 '10'
+     [0][90]
+0049  | OpSubtract
+     [0][90][90]
+0050  | OpSetLocal          1
+     [0][90][90][0]
+0052  | OpPop
+     [0][90][true]
+0053    8 OpGetLocal          1
+     [0][90][true]
+0055  | OpPrint
+     [0][90]
+0056    9 OpLoop             56 -> 36
+     [0][90][90]
+0059  | OpPop
+     [0][90][90][10]
+0060   10 OpGetLocal          0
+     [0][90][80]
+0062  | OpPrint
+     [0][80][80]
+0063   11 OpPop
+     [0][80]
+0064  | OpLoop             64 -> 17
+     [0][80][80]
+0067  | OpPop
 80
+     [0][80]
+0068  | OpPop
+     [0][80]
+0069   13 OpReturn
+     [0][80][80]
+0070    0 OpReturn
+     [0][80][80][0]
+0071  | OpReturn
+     [0][80][true]
+0072  | OpReturn
+     [0][80][true]
+0073  | OpReturn
+     [0][80]
+0074  | OpReturn
+     [0][80][80]
+0075  | OpReturn
+     [0][80][80][10]
+0076  | OpReturn
+     [0][80][70]
+0077  | OpReturn
+     [0][70][70]
+0078  | OpReturn
+     [0][70]
+0079  | OpReturn
+     [0][70][70]
+0080  | OpReturn
 70
+     [0][70]
+0081  | OpReturn
+     [0][70]
+0082  | OpReturn
+     [0][70][70]
+0083  | OpReturn
+     [0][70][70][0]
+0084  | OpReturn
+     [0][70][true]
+0085  | OpReturn
+     [0][70][true]
+0086  | OpReturn
+     [0][70]
+0087  | OpReturn
+     [0][70][70]
+0088  | OpReturn
+     [0][70][70][10]
+0089  | OpReturn
+     [0][70][60]
+0090  | OpReturn
+     [0][60][60]
+0091  | OpReturn
+     [0][60]
+0092  | OpReturn
+     [0][60][60]
+0093  | OpReturn
 60
+     [0][60]
+0094  | OpReturn
+     [0][60]
+0095  | OpReturn
+     [0][60][60]
+0096  | OpReturn
+     [0][60][60][0]
+0097  | OpReturn
+     [0][60][true]
+0098  | OpReturn
+     [0][60][true]
+0099  | OpReturn
+     [0][60]
+0100  | OpReturn
+     [0][60][60]
+0101  | OpReturn
+     [0][60][60][10]
+0102  | OpReturn
+     [0][60][50]
+0103  | OpReturn
+     [0][50][50]
+0104  | OpReturn
+     [0][50]
+0105  | OpReturn
+     [0][50][50]
+0106  | OpReturn
 50
+     [0][50]
+0107  | OpReturn
+     [0][50]
+0108  | OpReturn
+     [0][50][50]
+0109  | OpReturn
+     [0][50][50][0]
+0110  | OpReturn
+     [0][50][true]
+0111  | OpReturn
+     [0][50][true]
+0112  | OpReturn
+     [0][50]
+0113  | OpReturn
+     [0][50][50]
+0114  | OpReturn
+     [0][50][50][10]
+0115  | OpReturn
+     [0][50][40]
+0116  | OpReturn
+     [0][40][40]
+0117  | OpReturn
+     [0][40]
+0118  | OpReturn
+     [0][40][40]
+0119  | OpReturn
 40
-30
-20
-10
-0
-0
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-1
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-2
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-3
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-4
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-5
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-6
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-7
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-8
-Starting Inner Loop
-------------
-90
-80
-70
-60
-50
-40
-30
-20
-10
-0
-9
+     [0][40]
+0120  | OpReturn
+     [0][40]
+0121  | OpReturn
+     [0][40][40]
+0122  | OpReturn
+     [0][40][40][0]
+0123  | OpReturn
+     [0][40][true]
+0124  | OpReturn
+     [0][40][true]
+0125  | OpReturn
+     [0][40]
+0126  | OpReturn
+     [0][40][40]
+0127  | OpReturn
+     [0][40][40][10]
+0128 

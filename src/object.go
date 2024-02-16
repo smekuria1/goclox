@@ -8,12 +8,21 @@ type ObjType int
 
 const (
 	ObjStringType ObjType = iota // The type of the string object.
+	ObjFunctionType
 )
 
 // Obj represents an object in the code.
 type Obj struct {
 	Type ObjType // The type of the object.
 	Next *Obj    // The next object in the list.
+}
+
+// ObjFunction represents a function object in the code.
+type ObjFunction struct {
+	obj   Obj
+	arity int
+	chunk Chunk
+	name  *ObjectString
 }
 
 // ObjectString represents a string object in the code.
@@ -24,13 +33,45 @@ type ObjectString struct {
 	Hash   uint32 // The hash value of the string.
 }
 
+// NewFunction initializes and returns a new ObjFunction.
+//
+// No parameters.
+// Returns a pointer to ObjFunction.
+func NewFunction() *ObjFunction {
+	function := &ObjFunction{}
+
+	function.arity = 0
+	function.obj = allocateObject(ObjFunctionType)
+	function.chunk = Chunk{}
+	InitChunk(&function.chunk)
+	function.name = nil
+
+	return function
+}
+
+// AsFunction returns the ObjFunction from the given Value.
+//
+// value Value
+// *ObjFunction
+func AsFunction(value Value) *ObjFunction {
+	return value.As.(*ObjFunction)
+}
+
+// IsFunction checks if the given value is a function.
+//
+// value Value
+// bool
+func IsFunction(value Value) bool {
+	return IsObjType(value, ObjFunctionType)
+}
+
 // OBJStrType returns the ObjType of the given Value.
 //
 // It takes a single parameter:
 // - value: the Value to determine the ObjType for.
 //
 // It returns the ObjType of the given Value.
-func OBJStrType(value Value) ObjType {
+func OBJType(value Value) ObjType {
 	return AsObj(value).Type
 }
 
@@ -75,7 +116,8 @@ func AsCString(value Value) string {
 //
 // It takes the starting index of the substring, the length of the substring, the source string, and the type of object as parameters.
 // It returns a pointer to the newly created ObjectString.
-func copyString(start, length int, source string, _type ObjType) *ObjectString {
+func copyString(start, length int, _type ObjType) *ObjectString {
+	source := *scanner.Source
 	heapChars := make([]byte, length+1)
 	chars := source[start : start+length]
 	hash := hashString([]byte(chars), length)

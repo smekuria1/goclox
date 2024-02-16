@@ -86,6 +86,8 @@ func DisassembleInstruction(chunk *Chunk, offset int) int {
 		return jumpInstruction("OpJumpElse", 1, chunk, offset)
 	case uint8(globals.OpLoop):
 		return jumpInstruction("OpLoop", -1, chunk, offset)
+	case uint8(globals.OpCall):
+		return byteInstruction("OpCall", chunk, offset)
 	default:
 		fmt.Println("Unknown opcode ", instruction)
 		return offset + 1

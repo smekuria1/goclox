@@ -55,12 +55,12 @@ cover:
 	go test -coverprofile cp.out
 	go tool cover -html=cp.out
 run:
-	./bin/"${BIN_FILE}" -${RUNMODE}
+	./bin/"${BIN_FILE}" -file test.clox
 run-exT:
-	./bin/"${BIN_FILE}" -file test.clox -debugT > compilerout.txt
+	./bin/"${BIN_FILE}" -file test.clox -debugT
 
 run-exC:
-	./bin/"${BIN_FILE}" -file test.clox -debugC > compilerout.txt
+	./bin/"${BIN_FILE}" -file test.clox -debugC
 
 lint: | $(REVIVE) ; $(info $(M) running golint…) @ ## Run golint
 	$Q $(REVIVE) -formatter friendly -set_exit_status ./...
